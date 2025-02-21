@@ -1,6 +1,6 @@
 # WOL+ 即可以唤醒，又可以关机
 
-![Wake On LAN+](wolp.png)
+![Wake On LAN+](openwrt/wolp.png)
 
 ### 使用警告
 
