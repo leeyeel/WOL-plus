@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>WOL Plus 配置</title>
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
+        <h1>WOL Plus 配置</h1>
+        <label for="mac">MAC 地址:</label>
+        <input type="text" id="mac" disabled>
+
+        <label for="mac">附加数据 (6 字节十六进制，使用冒号分割):</label>
+        <input type="text" id="extra" placeholder="例如: 12:34:56:78:AB:CD">
+
+        <button onclick="saveConfig()">保存</button>
+        <p id="message"></p>
+
+        <script>
+            function loadConfig() {
+                fetch('/config')
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('mac').value = data.mac_address;
+                        document.getElementById('extra').value = data.extra_data;
+                    })
+                    .catch(error => console.error('加载配置失败:', error));
+            }
+
+            function saveConfig() {
+                const mac = document.getElementById('mac').value.trim();
+                const extra = document.getElementById('extra').value.trim();
+
+                fetch('/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mac_address: mac, extra_data: extra })
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            document.getElementById('message').textContent = "配置已成功更新！";
+                        } else {
+                            document.getElementById('message').textContent = "更新配置失败！";
+                            document.getElementById('message').style.color = "red";
+                        }
+                    })
+                    .catch(error => {
+                        console.error('保存配置失败:', error);
+                        document.getElementById('message').textContent = "网络错误，保存失败！";
+                        document.getElementById('message').style.color = "red";
+                    });
+            }
+
+            window.onload = loadConfig;
+        </script>
+    </body>
+</html>
+
