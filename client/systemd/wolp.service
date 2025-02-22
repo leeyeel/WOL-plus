@@ -1,0 +1,14 @@
+[Unit]
+Description=WOL Packet Listener Service
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/wolp
+Restart=always
+User=root
+WorkingDirectory=/usr/local/etc/wolp
+Environment="CONFIG_FILE=/usr/local/etc/wolp/wolp.json"
+SyslogIdentifier=wolp
+
+[Install]
+WantedBy=multi-user.target

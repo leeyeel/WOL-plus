@@ -17,6 +17,9 @@ import (
 	"github.com/google/gopacket/pcap"
 )
 
+const configFilePath = "/usr/local/etc/wolp/wolp.json"
+const webuiPath = "/usr/share/wolp/webui/"
+
 type Config struct {
 	MacAddress string `json:"mac_address"`
 	Interface  string `json:"interface"`
@@ -29,13 +32,13 @@ var (
 	shutdownMutex sync.Mutex
 )
 
-func loadConfig() {
-	file, err := os.ReadFile("config.json")
+func loadConfig(path string) {
+	file, err := os.ReadFile(path)
 	if err != nil {
 		log.Println("Config file not found, creating a new one...")
 		config.MacAddress, config.Interface = getLocalMacInfo()
 		config.ExtraData = "" // 默认不填附加数据
-		saveConfig()
+		saveConfig(path)
 		return
 	}
 
@@ -46,16 +49,16 @@ func loadConfig() {
 	// 如果 MAC 地址为空，获取设备 MAC 地址
     if config.MacAddress == "" || config.Interface == "" {
 		config.MacAddress, config.Interface = getLocalMacInfo()
-		saveConfig()
+		saveConfig(path)
 	}
 }
 
-func saveConfig() error {
+func saveConfig(path string) error {
 	data, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile("config.json", data, 0644)
+	return os.WriteFile(path, data, 0644)
 }
 
 func getLocalMacInfo() (string, string) {
@@ -179,9 +182,9 @@ func startServer() {
 		json.NewEncoder(w).Encode(config)
 	}).Methods("GET")
 	r.HandleFunc("/config", handleConfigUpdate).Methods("POST")
-	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./webui")))
+	r.PathPrefix("/").Handler(http.FileServer(http.Dir(webuiPath)))
 
-	log.Println("Starting web server on :9980")
+    log.Println("Starting web server on http://localhost:9980")
 	http.ListenAndServe(":9980", r)
 }
 
@@ -195,7 +198,7 @@ func handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to parse config", http.StatusBadRequest)
 		return
 	}
-	if err := saveConfig(); err != nil {
+	if err := saveConfig(configFilePath); err != nil {
 		http.Error(w, "Failed to save config", http.StatusInternalServerError)
 		return
 	}
@@ -203,6 +206,7 @@ func handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+    loadConfig(configFilePath);
 	config.MacAddress, config.Interface = getLocalMacInfo()
 	go listenForWOL()
     go startServer()
