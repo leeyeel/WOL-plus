@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
     "encoding/json"
 	"log"
+    "fmt"
 	"net"
     "net/http"
 	"os"
@@ -62,23 +63,25 @@ func saveConfig(path string) error {
 }
 
 func getLocalMacInfo() (string, string) {
-	interfaces, err := net.Interfaces()
-	if err != nil {
-		log.Fatalf("Failed to get network interfaces: %v", err)
-	}
+    interfaces, err := net.Interfaces()
+    if err != nil {
+        log.Fatalf("Failed to get network interfaces: %v", err)
+    }
 
-	for _, iface := range interfaces {
-		if iface.Flags&net.FlagUp != 0 && !strings.Contains(iface.Name, "lo") {
-			mac := iface.HardwareAddr.String()
-			if mac != "" {
-				log.Printf("Detected MAC Address: %s on interface %s", mac, iface.Name)
-				return mac, iface.Name
-			}
-		}
-	}
+    for _, iface := range interfaces {
+        // 过滤无效网卡：必须是 "up" 状态，且不是 Loopback（回环地址）
+        if (iface.Flags&net.FlagUp) != 0 && (iface.Flags&net.FlagLoopback) == 0 {
+            mac := iface.HardwareAddr.String()
+            if mac != "" {
+                // Windows 设备名不同，如 "Ethernet", "Wi-Fi"
+                fmt.Printf("Detected MAC: %s on interface %s\n", mac, iface.Name)
+                return mac, iface.Name
+            }
+        }
+    }
 
-	log.Println("No valid MAC address found.")
-	return "UNKNOWN", "UNKNOWN"
+    log.Println("No valid network interface found.")
+    return "UNKNOWN", "UNKNOWN"
 }
 
 func listenForWOL() {
