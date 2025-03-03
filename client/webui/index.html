@@ -19,7 +19,7 @@
 
         <script>
             function loadConfig() {
-                fetch('/config')
+                fetch('/api/config')
                     .then(response => response.json())
                     .then(data => {
                         document.getElementById('mac').value = data.mac_address;
@@ -32,7 +32,7 @@
                 const mac = document.getElementById('mac').value.trim();
                 const extra = document.getElementById('extra').value.trim();
 
-                fetch('/config', {
+                fetch('/api/config', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ mac_address: mac, extra_data: extra })
