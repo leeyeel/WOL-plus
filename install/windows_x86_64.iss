@@ -1,6 +1,7 @@
 ; wolp.iss - Inno Setup Script
 #define MyAppName "wolp"
-#define MyAppExeName "wolp.exe"
+#define MyAppExeName "wolp-service.exe"
+  
 
 [Setup]
 AppName={#MyAppName}
@@ -18,31 +19,24 @@ ArchitecturesInstallIn64BitMode=x64compatible
 SetupIconFile="{#SourcePath}\icon.ico"
 
 [Files]
+;先把文件复制过去，然后再执行命令
 Source: "{#SourcePath}\..\build\wolp.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourcePath}\..\client\webui\*"; DestDir: "{app}\webui"; Flags: recursesubdirs createallsubdirs ignoreversion
 Source: "{#SourcePath}\icon.ico"; DestDir: "{app}"; Flags: onlyifdoesntexist
 Source: "{#SourcePath}\wolp-service.xml"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourcePath}\wolp-service.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 ; 在开始菜单创建快捷方式
 Name: "{group}\wolp"; Filename: "{app}\wolp.exe"; IconFilename: "{app}\icon.ico"
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Parameters: "install";
+Filename: "{app}\{#MyAppExeName}"; Parameters: "install wolp-service.xml";
 Filename: "{app}\{#MyAppExeName}"; Parameters: "start";
 
 [UninstallRun]
-Filename: "{app}\{#MyAppExeName}"; Parameters: "stop";
-Filename: "{app}\{#MyAppExeName}"; Parameters: "uninstall";
+Filename: "{app}\{#MyAppExeName}"; Parameters: "stop";Flags: runhidden; RunOnceId: "StopService";
+Filename: "{app}\{#MyAppExeName}"; Parameters: "uninstall";Flags: runhidden; RunOnceId: "UninstallService"
 
 [UninstallDelete]
 Type: files; Name: "{app}\wolp-service.log"
-
-[Code]
-function InitializeSetup() : Boolean;
-var 
-  ResultCode: Integer;
-begin
-  Result := True;
-  Exec('cmd.exe', '/C sc.exe stop wolp', '', SW_HIDE, ewWaitUntilTerminated, ResultCode); 
-end;

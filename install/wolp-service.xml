@@ -1,9 +1,9 @@
 <service>
-    <id>wolp</id>
+    <id>wolp-service</id>
     <name>wolp background service for Windows</name>
     <description>A web GUI client of wol plus.</description>
     <executable>%BASE%\wolp.exe</executable>
-    <env name="PATH" value="%BASE%\bin\;%windir%\system32\"/>
+    <env name="PATH" value="%BASE%\;%windir%\system32\"/>
     <arguments>--port 2025</arguments>
     <workingdirectory>%TEMP%</workingdirectory>
     <log mode="roll"></log>

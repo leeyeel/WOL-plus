@@ -2,3 +2,5 @@ build
 Output
 .vscode
 .cache
+*.exe
+*.log
