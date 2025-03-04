@@ -30,7 +30,9 @@ scp -O openwrt/wol.js root@[ip]:/www/luci-static/resources/view/
 ```
 2. 客户端安装
     - windows
+        直接安装installer_windows_inno_x64.exe即可
     - linux/macos
+        编译安装，进到项目目录执行`make &&sudo make install`即可
 
 ### 开发指南
 
