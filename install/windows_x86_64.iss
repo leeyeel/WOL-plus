@@ -40,3 +40,9 @@ Filename: "{app}\{#MyAppExeName}"; Parameters: "uninstall";Flags: runhidden; Run
 
 [UninstallDelete]
 Type: files; Name: "{app}\wolp-service.log"
+Type: files; Name: "{app}\wolp-service.err.log"
+Type: files; Name: "{app}\winsw.exe"
+Type: files; Name: "{app}\wolp-service.xml"
+Type: files; Name: "{app}\wolp.exe"
+; 强制删除整个 {app} 
+Type: dirifempty; Name: "{app}"
