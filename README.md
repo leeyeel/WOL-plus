@@ -13,6 +13,14 @@
 
 [WOL原项目](https://github.com/openwrt/luci/tree/master/applications/luci-app-wol)
 
+
+
+### TODO
+
+- web增加取消关机功能
+- 增加倒计时关机提醒
+- 增加修改端口功能 
+
 ### 安装及使用方法
 
 **如果你的openwrt中已经安装了wol，请先卸载**
