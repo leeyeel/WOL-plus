@@ -25,13 +25,14 @@
 **如果你的openwrt中已经安装了wol，请先卸载**
 
 1. openwrt端安装
-// 注意替换ip为openwrt的ip, 拷贝 wol.zh-cn.lom文件到openwrt的/usr/lib/lua/luci/i18n/目录
+
+注意替换ip为openwrt的ip, 拷贝 wol.zh-cn.lom文件到openwrt的/usr/lib/lua/luci/i18n/目录
 
 ```
 scp -O openwrt/wol.zh-cn.lmo root@[ip]:/usr/lib/lua/luci/i18n/ 
 ```
 
-// 拷贝 wol.js文件到openwrt的/www/luci-static/resources/view/目录
+拷贝 wol.js文件到openwrt的/www/luci-static/resources/view/目录
 ```
 scp -O openwrt/wol.js root@[ip]:/www/luci-static/resources/view/
 ```
