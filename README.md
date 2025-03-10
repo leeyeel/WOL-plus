@@ -1,6 +1,10 @@
 # Wake On LAN Plus 既可唤醒，又可关机
 
+openwrt 端展示:
+
 ![Wake On LAN+](openwrt/wolp.png)
+
+客户端展示:
 
 ![WOLP client](client/wolp-client.jpg)
 
