@@ -44,5 +44,9 @@ uninstall:
 	# 重新加载 systemd
 	systemctl daemon-reload
 
-.PHONY: all install uninstall
+.PHONY: all install uninstall clean
+
+clean:
+	rm -rf wolp
+
 
