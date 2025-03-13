@@ -174,7 +174,7 @@ func getNetworkDevice() (string, string, error) {
 }
 
 // startPacketCapture 在单独 goroutine 中监听指定网卡，捕获数据包并检测 Magic Packet
-func startPacketCapture(ctx context.Context, devName string, shutdown_delay string) {
+func startPacketCapture(ctx context.Context, devName string) {
 	defer captureWg.Done()
 	handle, err := pcap.OpenLive(devName, 1600, true, pcap.BlockForever)
 	if err != nil {
@@ -199,7 +199,7 @@ func startPacketCapture(ctx context.Context, devName string, shutdown_delay stri
 			data := packet.Data()
 			if isWOLFrame(data) {
 				log.Println("Received Wake-on-LAN Magic Packet!")
-				initiateShutdown(shutdown_delay);
+				initiateShutdown();
 			}
 		}
 	}
@@ -257,7 +257,7 @@ func isWOLFrame(data []byte) bool {
 	return true
 }
 
-func initiateShutdown(shutdown_delay string) {
+func initiateShutdown() {
 	shutdownSystem := func() error {
 	    if runtime.GOOS == "windows" {
 			return exec.Command("shutdown", "/s", "/t", "0").Run()
@@ -280,10 +280,10 @@ func initiateShutdown(shutdown_delay string) {
 		return
 	}
 
-    num, err := strconv.Atoi(shutdown_delay);
+    num, err := strconv.Atoi(config.Shutdown_delay);
     if err != nil {
         fmt.Println("Failed to convert string to int, use default value 60.");
-        shutdown_delay = "60";
+        config.Shutdown_delay = "60";
         num = 60;
     }
 	if shutdownTimer != nil {
@@ -293,7 +293,7 @@ func initiateShutdown(shutdown_delay string) {
     startTime = time.Now()
     shutdownDuration = time.Duration(num) * time.Second
     shutdownTimer = time.NewTimer(shutdownDuration);
-	log.Printf("Shutdown scheduled in %s seconds. Use web UI to cancel.", shutdown_delay);
+	log.Printf("Shutdown scheduled in %s seconds. Use web UI to cancel.", config.Shutdown_delay);
 	go func() {
 		<-shutdownTimer.C
         executeShutdown();
@@ -375,7 +375,7 @@ func main() {
 	captureCtx, cancel := context.WithCancel(context.Background())
 	captureCancel = cancel
 	captureWg.Add(1)
-	go startPacketCapture(captureCtx, config.Interface, config.Shutdown_delay)
+	go startPacketCapture(captureCtx, config.Interface)
 
 	// 3. 启动 HTTP 服务器
 	r := mux.NewRouter()

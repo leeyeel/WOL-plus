@@ -2,5 +2,6 @@ build
 Output
 .vscode
 .cache
+wolp
 *.exe
 *.log
