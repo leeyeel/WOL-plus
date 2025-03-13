@@ -16,7 +16,7 @@
             </div>
 
             <div class="form-group">
-                <label for="remainingTime">关机剩余时间：</label>
+                <label for="remainingTime">关机剩余时间（秒）：</label>
                 <input type="text" id="remainingTime" readonly>
             </div>
 
@@ -78,10 +78,8 @@
                 fetch('/api/remaining')
                     .then(response => response.text())
                     .then(data => {
-                        document.getElementById("remainingTime").innerText = data.trim();
-                        if (parseInt(data) > 0) {
-                            setTimeout(fetchRemainingTime, 1000); // 每秒更新一次
-                        }
+                        document.getElementById("remainingTime").value = data.trim();
+                        setTimeout(fetchRemainingTime, 1000); // 每秒更新一次
                     });
             }
 
