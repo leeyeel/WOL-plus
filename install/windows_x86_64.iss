@@ -1,25 +1,20 @@
 ; wolp.iss - Inno Setup Script
 #define MyAppName "wolp"
 #define MyAppExeName "wolp-service.exe"
-  
 
 [Setup]
 AppName={#MyAppName}
 AppVersion=1.0.0
 AppPublisher=leo
 AppPublisherURL=https://github.com/leeyeel/WOL-plus    
-; 输出安装包的文件名，默认输出到脚本所在目录
 OutputBaseFilename=installer_windows_inno_x64
 DefaultDirName={commonpf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
-; 安装时请求管理员权限
 PrivilegesRequired=admin
-; 64位模式
 ArchitecturesInstallIn64BitMode=x64compatible
 SetupIconFile="{#SourcePath}\icon.ico"
 
 [Files]
-;先把文件复制过去，然后再执行命令
 Source: "{#SourcePath}\..\build\wolp.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourcePath}\..\client\webui\*"; DestDir: "{app}\webui"; Flags: recursesubdirs createallsubdirs ignoreversion
 Source: "{#SourcePath}\icon.ico"; DestDir: "{app}"; Flags: onlyifdoesntexist
@@ -27,7 +22,6 @@ Source: "{#SourcePath}\wolp-service.xml"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourcePath}\wolp-service.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-; 在开始菜单创建快捷方式
 Name: "{group}\wolp"; Filename: "{app}\wolp.exe"; IconFilename: "{app}\icon.ico"
 
 [Run]
@@ -44,5 +38,22 @@ Type: files; Name: "{app}\wolp-service.err.log"
 Type: files; Name: "{app}\winsw.exe"
 Type: files; Name: "{app}\wolp-service.xml"
 Type: files; Name: "{app}\wolp.exe"
-; 强制删除整个 {app} 
-Type: dirifempty; Name: "{app}"
+Type: dirifempty; Name: "{app}" 
+
+
+[Code]
+function IsAlreadyInstalled: Boolean;
+begin
+  Result := RegKeyExists(HKEY_LOCAL_MACHINE, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#MyAppName}_is1');
+end;
+
+function InitializeSetup(): Boolean;
+begin
+  Result := True;
+  if IsAlreadyInstalled then
+  begin
+    MsgBox('{#MyAppName} 已安装在您的计算机上，请先卸载再进行安装！', mbError, MB_OK);
+    Result := False;
+  Exit;
+end;
+end;

@@ -69,7 +69,5 @@ function Download() {
     }
 }
 
-Set-PSDebug -Trace 1
 Build
 Download
-Set-PSDebug -Trace 0

@@ -12,11 +12,11 @@ import (
 	"os/exec"
 	"os/signal"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
-    "strconv"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/pcap"
@@ -24,10 +24,10 @@ import (
 )
 
 type Config struct {
-	MacAddress string `json:"mac_address"`
-	Interface  string `json:"interface"`
-	ExtraData  string `json:"extra_data"`
-    Shutdown_delay string `json:"shudown_delay"`
+	MacAddress     string `json:"mac_address"`
+	Interface      string `json:"interface"`
+	ExtraData      string `json:"extra_data"`
+	Shutdown_delay string `json:"shudown_delay"`
 }
 
 var (
@@ -44,10 +44,10 @@ var (
 	serverWg sync.WaitGroup
 
 	// 用于控制关机的互斥锁和定时器
-	shutdownMutex sync.Mutex
-	shutdownTimer *time.Timer
-    startTime   time.Time
-    shutdownDuration time.Duration
+	shutdownMutex    sync.Mutex
+	shutdownTimer    *time.Timer
+	startTime        time.Time
+	shutdownDuration time.Duration
 )
 
 func getConfigPath() (string, string) {
@@ -58,33 +58,33 @@ func getConfigPath() (string, string) {
 }
 
 func loadConfig(path string) {
-    create_and_init := func() {
-        log.Println("Config file not found, creating a new one...");
-        var err error;
-        config.Interface, config.MacAddress, err = getNetworkDevice();
-        if err != nil {
-            log.Fatalf("Error: %v", err)
-        }
-        config.ExtraData = ""
-        log.Printf("Initial config: %+v", config)
-        config.Shutdown_delay = "60"
-        if err := saveConfig(path); err != nil {
-            log.Fatalf("Failed to save config: %v", err)
-        }
-    }
+	create_and_init := func() {
+		log.Println("Config file not found, creating a new one...")
+		var err error
+		config.Interface, config.MacAddress, err = getNetworkDevice()
+		if err != nil {
+			log.Fatalf("Error: %v", err)
+		}
+		config.ExtraData = ""
+		log.Printf("Initial config: %+v", config)
+		config.Shutdown_delay = "60"
+		if err := saveConfig(path); err != nil {
+			log.Fatalf("Failed to save config: %v", err)
+		}
+	}
 
 	file, err := os.ReadFile(path)
 	if err != nil {
-        create_and_init();
-	    return
+		create_and_init()
+		return
 	}
-    err = json.Unmarshal(file, &config); 
+	err = json.Unmarshal(file, &config)
 	if err != nil {
 		log.Fatalf("Failed to parse config: %v", err)
-    }
-    if config.Interface == "" || config.MacAddress == ""{
-        create_and_init();
-    }
+	}
+	if config.Interface == "" || config.MacAddress == "" {
+		create_and_init()
+	}
 }
 
 func saveConfig(path string) error {
@@ -95,7 +95,7 @@ func saveConfig(path string) error {
 	// 确保目录存在
 	dir := path[:len(path)-len("/wolp.json")]
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("Failed to create the config file: %v", err)
+		return fmt.Errorf("failed to create the config file: %v", err)
 	}
 	return os.WriteFile(path, data, 0644)
 }
@@ -105,13 +105,13 @@ func getNetworkDevice() (string, string, error) {
 	// 获取所有 pcap 设备
 	devices, err := pcap.FindAllDevs()
 	if err != nil {
-		return "", "", fmt.Errorf("Could not get network devices: %v", err)
+		return "", "", fmt.Errorf("could not get network devices: %v", err)
 	}
 
 	// 获取系统网卡信息
 	netIfaces, err := net.Interfaces()
 	if err != nil {
-		return "", "", fmt.Errorf("Could not get network interfaces: %v", err)
+		return "", "", fmt.Errorf("could not get network interface: %v", err)
 	}
 
 	// 记录匹配的设备
@@ -170,7 +170,7 @@ func getNetworkDevice() (string, string, error) {
 		return selectedDevice.Name, selectedMAC.String(), nil
 	}
 
-	return "", "", fmt.Errorf("Could not select network interface.")
+	return "", "", fmt.Errorf("could not select network interface")
 }
 
 // startPacketCapture 在单独 goroutine 中监听指定网卡，捕获数据包并检测 Magic Packet
@@ -199,7 +199,7 @@ func startPacketCapture(ctx context.Context, devName string) {
 			data := packet.Data()
 			if isWOLFrame(data) {
 				log.Println("Received Wake-on-LAN Magic Packet!")
-				initiateShutdown();
+				initiateShutdown()
 			}
 		}
 	}
@@ -259,7 +259,7 @@ func isWOLFrame(data []byte) bool {
 
 func initiateShutdown() {
 	shutdownSystem := func() error {
-	    if runtime.GOOS == "windows" {
+		if os.Getenv("OS") == "Windows_NT" {
 			return exec.Command("shutdown", "/s", "/t", "0").Run()
 		}
 		return exec.Command("shutdown", "-h", "now").Run()
@@ -280,23 +280,23 @@ func initiateShutdown() {
 		return
 	}
 
-    num, err := strconv.Atoi(config.Shutdown_delay);
-    if err != nil {
-        fmt.Println("Failed to convert string to int, use default value 60.");
-        config.Shutdown_delay = "60";
-        num = 60;
-    }
+	num, err := strconv.Atoi(config.Shutdown_delay)
+	if err != nil {
+		fmt.Println("Failed to convert string to int, use default value 60.")
+		config.Shutdown_delay = "60"
+		num = 60
+	}
 	if shutdownTimer != nil {
 		shutdownTimer.Stop()
 		log.Println("The previous shutdown task was canceled.")
 	}
-    startTime = time.Now()
-    shutdownDuration = time.Duration(num) * time.Second
-    shutdownTimer = time.NewTimer(shutdownDuration);
-	log.Printf("Shutdown scheduled in %s seconds. Use web UI to cancel.", config.Shutdown_delay);
+	startTime = time.Now()
+	shutdownDuration = time.Duration(num) * time.Second
+	shutdownTimer = time.NewTimer(shutdownDuration)
+	log.Printf("Shutdown scheduled in %s seconds. Use web UI to cancel.", config.Shutdown_delay)
 	go func() {
 		<-shutdownTimer.C
-        executeShutdown();
+		executeShutdown()
 	}()
 }
 
@@ -309,17 +309,17 @@ func cancelShutdownTimer(w http.ResponseWriter, r *http.Request) {
 		log.Println("shutdown task was canceled.")
 		shutdownTimer = nil
 	} else {
-        log.Println("There are no tasks to be cancelled.")
+		log.Println("There are no tasks to be cancelled.")
 	}
 }
 
 // 获取剩余时间
-func getRemainingTime(w http.ResponseWriter, r *http.Request){
+func getRemainingTime(w http.ResponseWriter, r *http.Request) {
 	shutdownMutex.Lock()
 	defer shutdownMutex.Unlock()
 
 	if shutdownTimer == nil {
-        fmt.Fprintln(w, "0") // 没有任务，返回 0
+		fmt.Fprintln(w, "0") // 没有任务，返回 0
 		return
 	}
 
@@ -327,10 +327,10 @@ func getRemainingTime(w http.ResponseWriter, r *http.Request){
 	remaining := shutdownDuration - elapsed // 计算剩余时间
 
 	if remaining < 0 {
-        fmt.Fprintln(w, "0") // 任务已经执行，剩余时间为 0
-	    return
+		fmt.Fprintln(w, "0") // 任务已经执行，剩余时间为 0
+		return
 	}
-    fmt.Fprintln(w, int(remaining.Seconds())) // 返回剩余秒数
+	fmt.Fprintln(w, int(remaining.Seconds())) // 返回剩余秒数
 }
 
 func handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
@@ -385,7 +385,7 @@ func main() {
 		json.NewEncoder(w).Encode(config)
 	}).Methods("GET")
 	api.HandleFunc("/config", handleConfigUpdate).Methods("POST")
-    api.HandleFunc("/cancel", cancelShutdownTimer)
+	api.HandleFunc("/cancel", cancelShutdownTimer)
 	api.HandleFunc("/remaining", getRemainingTime)
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir(webuiPath)))
 	// 3.2 静态文件: 将 webuiPath 作为静态资源目录

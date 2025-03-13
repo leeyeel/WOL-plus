@@ -80,6 +80,22 @@ make po2lmo
 
 便已完成po2lmo后使用`po2lmo wol.po wol.lmo`即可完成转换。
 
+3. windows下编译打包
+
+进到WOL-plus目录中，分别执行如下命令
+
+编译
+```
+./build.ps1
+```
+
+打包
+
+```
+iscc .\install\windows_x86_64.iss
+```
+执行成功后会生成install\Output\installer_windows_inno_x64.exe 文件，之后安装即可。
+
 ### TODO
 
 - web增加取消关机功能
