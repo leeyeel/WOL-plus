@@ -9,9 +9,8 @@
     <body>
         <div class="container">
             <h2>WOL Plus 配置</h2>
-
             <div class="form-group">
-                <label for="shutdownTime">设置倒计时时长（秒）：</label>
+                <label for="shutdownTime">关机倒计时时长（秒）：</label>
                 <input type="number" id="shutdownTime" placeholder="输入秒数">
             </div>
 
@@ -80,15 +79,16 @@
                     .then(data => {
                         document.getElementById("remainingTime").value = data.trim();
                         setTimeout(fetchRemainingTime, 1000); // 每秒更新一次
-                    });
+                    })
+                    .catch(error => console.error('Error fetching remaining time:', error));
             }
 
             function cancelShutdown() {
                 fetch('/api/cancel')
                     .then(response => response.text())
                     .then(data => {
-                        alert(data);
                         document.getElementById("remainingTime").innerText = "-1"; // 立即更新 UI
+                        document.getElementById('message').textContent = "关机已取消！";
                     });
             }
             loadConfig();

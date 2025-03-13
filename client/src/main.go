@@ -95,7 +95,7 @@ func saveConfig(path string) error {
 	// 确保目录存在
 	dir := path[:len(path)-len("/wolp.json")]
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("创建配置目录失败: %v", err)
+		return fmt.Errorf("Failed to create the config file: %v", err)
 	}
 	return os.WriteFile(path, data, 0644)
 }
@@ -105,13 +105,13 @@ func getNetworkDevice() (string, string, error) {
 	// 获取所有 pcap 设备
 	devices, err := pcap.FindAllDevs()
 	if err != nil {
-		return "", "", fmt.Errorf("无法获取网卡信息: %v", err)
+		return "", "", fmt.Errorf("Could not get network devices: %v", err)
 	}
 
 	// 获取系统网卡信息
 	netIfaces, err := net.Interfaces()
 	if err != nil {
-		return "", "", fmt.Errorf("无法获取网络接口信息: %v", err)
+		return "", "", fmt.Errorf("Could not get network interfaces: %v", err)
 	}
 
 	// 记录匹配的设备
@@ -165,12 +165,12 @@ func getNetworkDevice() (string, string, error) {
 
 	// 如果找到合适的网卡，返回设备名称和 MAC 地址
 	if len(validIPs) > 0 {
-		fmt.Printf("已选择网卡: %s (%s) - MAC: %s - IPs: %v\n",
+		fmt.Printf("Select network device: %s (%s) - MAC: %s - IPs: %v\n",
 			selectedDevice.Name, selectedDevice.Description, selectedMAC, validIPs)
 		return selectedDevice.Name, selectedMAC.String(), nil
 	}
 
-	return "", "", fmt.Errorf("没有找到合适的网卡")
+	return "", "", fmt.Errorf("Could not select network interface.")
 }
 
 // startPacketCapture 在单独 goroutine 中监听指定网卡，捕获数据包并检测 Magic Packet
@@ -178,7 +178,7 @@ func startPacketCapture(ctx context.Context, devName string, shutdown_delay stri
 	defer captureWg.Done()
 	handle, err := pcap.OpenLive(devName, 1600, true, pcap.BlockForever)
 	if err != nil {
-		log.Printf("打开网卡 %s 失败: %v\n", devName, err)
+		log.Printf("Failed to open device %s: %v\n", devName, err)
 		return
 	}
 	defer handle.Close()
@@ -189,16 +189,16 @@ func startPacketCapture(ctx context.Context, devName string, shutdown_delay stri
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("停止抓包 goroutine")
+			log.Println("Stop capturing goroutine")
 			return
 		case packet, ok := <-packets:
 			if !ok {
-				log.Println("抓包通道已关闭")
+				log.Println("The capturing channel has been closed")
 				return
 			}
 			data := packet.Data()
 			if isWOLFrame(data) {
-				log.Println("检测到 Wake-on-LAN Magic Packet!")
+				log.Println("Received Wake-on-LAN Magic Packet!")
 				initiateShutdown(shutdown_delay);
 			}
 		}
@@ -259,7 +259,7 @@ func isWOLFrame(data []byte) bool {
 
 func initiateShutdown(shutdown_delay string) {
 	shutdownSystem := func() error {
-		if os.Getenv("OS") == "Windows_NT" {
+	    if runtime.GOOS == "windows" {
 			return exec.Command("shutdown", "/s", "/t", "0").Run()
 		}
 		return exec.Command("shutdown", "-h", "now").Run()
