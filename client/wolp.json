@@ -1,5 +1,8 @@
 {
   "mac_address": "c8:7f:54:9e:60:b2",
   "interface": "eno1",
-  "extra_data": "AA:BB:CC:DD:11:22"
+  "extra_data": "AA:BB:CC:DD:EE",
+  "shutdown_delay": "60",
+  "username": "admin",
+  "password": "admin123"
 }

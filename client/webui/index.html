@@ -7,43 +7,214 @@
         <link rel="stylesheet" href="style.css">
     </head>
     <body>
-        <div class="container">
-            <h2>WOL Plus 配置</h2>
-            <div class="form-group">
-                <label for="shutdownTime">关机倒计时时长（秒）：</label>
-                <input type="number" id="shutdownTime" placeholder="输入秒数">
+        <!-- 登录界面 -->
+        <div class="container" id="loginContainer">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#667eea" stroke-width="2">
+                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                    <line x1="12" y1="2" x2="12" y2="12"></line>
+                </svg>
             </div>
-
+            <h2>WOL Plus</h2>
             <div class="form-group">
-                <label for="remainingTime">关机剩余时间（秒）：</label>
-                <input type="text" id="remainingTime" readonly>
+                <label for="username">用户名</label>
+                <input type="text" id="username" placeholder="请输入用户名" autocomplete="username">
             </div>
-
             <div class="form-group">
-                <label for="mac">MAC 地址:</label>
-                <input type="text" id="mac" disabled>
+                <label for="password">密码</label>
+                <input type="password" id="password" placeholder="请输入密码" autocomplete="current-password">
             </div>
-
-            <div class="form-group">
-                <label for="mac">附加数据 (6 字节十六进制，使用冒号分割):</label>
-                <input type="text" id="extra" placeholder="例如: 12:34:56:78:AB:CD">
-            </div>
-
             <div class="button-group">
-                <button class="save-btn" onclick="saveConfig()">保存</button>
-                <button class="cancel-btn" onclick="cancelShutdown()">取消关机</button>
+                <button class="save-btn" onclick="login()">登 录</button>
             </div>
+            <p id="loginMessage"></p>
+        </div>
+
+        <!-- 配置界面 -->
+        <div class="container" id="configContainer" style="display: none;">
+            <div class="header-row">
+                <div style="display: flex; align-items: center;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#667eea" stroke-width="2" style="margin-right: 10px;">
+                        <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                        <line x1="12" y1="2" x2="12" y2="12"></line>
+                    </svg>
+                    <h2 style="margin: 0;">WOL Plus</h2>
+                </div>
+                <button class="logout-btn" onclick="logout()">退出</button>
+            </div>
+
+            <!-- 关机倒计时区域 -->
+            <div style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)); padding: 20px; border-radius: 15px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <span style="font-weight: 500; color: #555;">关机倒计时</span>
+                    <span id="statusIndicator" class="status-indicator status-online"></span>
+                </div>
+                <div style="display: flex; gap: 12px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 12px; color: #888; margin-bottom: 4px; display: block;">设置时长（秒）</label>
+                        <input type="number" id="shutdownTime" placeholder="60" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px; text-align: center;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 12px; color: #888; margin-bottom: 4px; display: block;">剩余时间</label>
+                        <input type="text" id="remainingTime" readonly value="0" style="width: 100%;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 网络配置 -->
+            <div style="border-top: 1px solid #eee; padding-top: 20px;">
+                <div class="form-group">
+                    <label for="mac">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;">
+                            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                        </svg>
+                        MAC 地址
+                    </label>
+                    <input type="text" id="mac" disabled>
+                </div>
+
+                <div class="form-group">
+                    <label for="extra">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                        </svg>
+                        附加数据（5字节）
+                    </label>
+                    <input type="text" id="extra" placeholder="例如: 12:34:56:78:AB">
+                    <small>格式：XX:XX:XX:XX:XX，第6字节自动添加操作类型</small>
+                </div>
+
+                <!-- 网卡信息 -->
+                <div class="form-group">
+                    <label>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;">
+                            <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
+                            <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+                            <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+                            <line x1="12" y1="20" x2="12.01" y2="20"></line>
+                        </svg>
+                        网络接口
+                    </label>
+                    <input type="text" id="networkInterface" disabled>
+                </div>
+            </div>
+
+            <!-- 安全设置 -->
+            <div style="border-top: 1px solid #eee; padding-top: 20px; margin-top: 10px;">
+                <div class="form-group">
+                    <label for="usernameInput">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        用户名
+                    </label>
+                    <input type="text" id="usernameInput">
+                </div>
+
+                <div class="form-group">
+                    <label for="newPassword">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                        新密码
+                    </label>
+                    <input type="password" id="newPassword" placeholder="留空则不修改">
+                </div>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="button-group">
+                <button class="save-btn" onclick="saveConfig()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 6px;">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        <polyline points="7 3 7 8 15 8"></polyline>
+                    </svg>
+                    保存配置
+                </button>
+                <button class="cancel-btn" onclick="cancelShutdown()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 6px;">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="15" y1="9" x2="9" y2="15"></line>
+                        <line x1="9" y1="9" x2="15" y2="15"></line>
+                    </svg>
+                    取消关机
+                </button>
+            </div>
+
             <p id="message"></p>
         </div>
 
         <script>
+            let authHeader = '';
+            let countdownInterval = null;
+
+            function login() {
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+
+                if (!username || !password) {
+                    showLoginMessage('请输入用户名和密码');
+                    return;
+                }
+
+                authHeader = 'Basic ' + btoa(username + ':' + password);
+
+                fetch('/api/config', {
+                    headers: { 'Authorization': authHeader }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    }
+                    throw new Error('认证失败');
+                })
+                .then(data => {
+                    document.getElementById('loginContainer').style.display = 'none';
+                    document.getElementById('configContainer').style.display = 'block';
+                    loadConfig();
+                    startCountdown();
+                })
+                .catch(error => {
+                    showLoginMessage('用户名或密码错误');
+                });
+            }
+
+            function showLoginMessage(msg) {
+                const el = document.getElementById('loginMessage');
+                el.textContent = msg;
+                el.style.background = 'rgba(220, 53, 69, 0.1)';
+            }
+
+            function logout() {
+                authHeader = '';
+                if (countdownInterval) {
+                    clearInterval(countdownInterval);
+                    countdownInterval = null;
+                }
+                document.getElementById('configContainer').style.display = 'none';
+                document.getElementById('loginContainer').style.display = 'block';
+                document.getElementById('username').value = '';
+                document.getElementById('password').value = '';
+                document.getElementById('loginMessage').textContent = '';
+            }
+
             function loadConfig() {
-                fetch('/api/config')
+                fetch('/api/config', {
+                    headers: { 'Authorization': authHeader }
+                })
                     .then(response => response.json())
                     .then(data => {
-                        document.getElementById('mac').value = data.mac_address;
-                        document.getElementById('extra').value = data.extra_data;
-                        document.getElementById('shutdownTime').value = data.shudown_delay;
+                        document.getElementById('mac').value = data.mac_address || '';
+                        document.getElementById('extra').value = data.extra_data || '';
+                        document.getElementById('shutdownTime').value = data.shutdown_delay || '60';
+                        document.getElementById('usernameInput').value = data.username || 'admin';
+                        document.getElementById('networkInterface').value = data.interface || '';
                     })
                     .catch(error => console.error('加载配置失败:', error));
             }
@@ -52,53 +223,112 @@
                 const mac = document.getElementById('mac').value.trim();
                 const extra = document.getElementById('extra').value.trim();
                 const shutdownTime = document.getElementById('shutdownTime').value.trim();
+                const username = document.getElementById('usernameInput').value.trim();
+                const newPassword = document.getElementById('newPassword').value;
+
+                const payload = {
+                    mac_address: mac,
+                    extra_data: extra,
+                    shutdown_delay: shutdownTime,
+                    username: username
+                };
+
+                if (newPassword) {
+                    payload.password = newPassword;
+                }
 
                 fetch('/api/config', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ mac_address: mac, extra_data: extra, shudown_delay: shutdownTime })
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': authHeader
+                    },
+                    body: JSON.stringify(payload)
                 })
                     .then(response => {
                         if (response.ok) {
-                            document.getElementById('message').textContent = "配置已成功更新！";
+                            showMessage('配置已成功更新！', 'success');
+                            document.getElementById('newPassword').value = '';
+                        } else if (response.status === 401) {
+                            logout();
+                            showLoginMessage('认证已过期，请重新登录');
                         } else {
-                            document.getElementById('message').textContent = "更新配置失败！";
-                            document.getElementById('message').style.color = "red";
+                            showMessage('更新配置失败！', 'error');
                         }
                     })
                     .catch(error => {
-                        console.error('保存配置失败:', error);
-                        document.getElementById('message').textContent = "网络错误，保存失败！";
-                        document.getElementById('message').style.color = "red";
+                        showMessage('网络错误，保存失败！', 'error');
                     });
             }
 
-            function fetchRemainingTime() {
-                fetch('/api/remaining')
+            function showMessage(text, type) {
+                const el = document.getElementById('message');
+                el.textContent = text;
+                el.style.background = type === 'success'
+                    ? 'rgba(40, 167, 69, 0.1)'
+                    : 'rgba(220, 53, 69, 0.1)';
+                el.style.color = type === 'success' ? '#28a745' : '#dc3545';
+                setTimeout(() => {
+                    el.textContent = '';
+                }, 3000);
+            }
+
+            function startCountdown() {
+                const updateCountdown = () => {
+                    fetch('/api/remaining')
+                        .then(response => response.text())
+                        .then(data => {
+                            const remaining = parseInt(data.trim());
+                            const el = document.getElementById('remainingTime');
+                            const indicator = document.getElementById('statusIndicator');
+
+                            el.value = remaining;
+
+                            if (remaining > 0) {
+                                el.classList.add('countdown-active');
+                                indicator.className = 'status-indicator status-offline';
+                            } else {
+                                el.classList.remove('countdown-active');
+                                indicator.className = 'status-indicator status-online';
+                            }
+                        })
+                        .catch(error => console.error('获取剩余时间失败:', error));
+                };
+
+                updateCountdown();
+                countdownInterval = setInterval(updateCountdown, 1000);
+            }
+
+            function cancelShutdown() {
+                fetch('/api/cancel', {
+                    headers: { 'Authorization': authHeader }
+                })
                     .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
+                        if (response.status === 401) {
+                            logout();
+                            showLoginMessage('认证已过期，请重新登录');
+                            throw new Error('Unauthorized');
                         }
                         return response.text();
                     })
                     .then(data => {
-                        document.getElementById("remainingTime").value = data.trim();
-                        setTimeout(fetchRemainingTime, 1000); // 每秒更新一次
+                        if (data !== undefined) {
+                            showMessage('关机已取消！', 'success');
+                        }
                     })
-                    .catch(error => console.error('Error fetching remaining time:', error));
-            }
-
-            function cancelShutdown() {
-                fetch('/api/cancel')
-                    .then(response => response.text())
-                    .then(data => {
-                        document.getElementById("remainingTime").innerText = "-1"; // 立即更新 UI
-                        document.getElementById('message').textContent = "关机已取消！";
+                    .catch(error => {
+                        if (error.message !== 'Unauthorized') {
+                            showMessage('取消失败！', 'error');
+                        }
                     });
             }
-            loadConfig();
-            fetchRemainingTime();
+
+            // Enter 键登录
+            document.addEventListener('DOMContentLoaded', function() {
+                document.getElementById('password').addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') login();
+                });
+            });
         </script>
     </body>
 </html>
-

@@ -24,11 +24,19 @@ import (
 )
 
 type Config struct {
-	MacAddress     string `json:"mac_address"`
-	Interface      string `json:"interface"`
-	ExtraData      string `json:"extra_data"`
-	Shutdown_delay string `json:"shudown_delay"`
+	MacAddress    string `json:"mac_address"`
+	Interface     string `json:"interface"`
+	ExtraData     string `json:"extra_data"`
+	ShutdownDelay string `json:"shutdown_delay"`
+	Username      string `json:"username"`
+	Password      string `json:"password"`
 }
+
+// 操作类型常量
+const (
+	OperationWake      = 0x01 // 唤醒操作（忽略，因为设备已开机）
+	OperationShutdown  = 0x02 // 关机操作
+)
 
 var (
 	config         Config
@@ -66,8 +74,10 @@ func loadConfig(path string) {
 			log.Fatalf("Error: %v", err)
 		}
 		config.ExtraData = ""
+		config.ShutdownDelay = "60"
+		config.Username = "admin"
+		config.Password = "admin123"
 		log.Printf("Initial config: %+v", config)
-		config.Shutdown_delay = "60"
 		if err := saveConfig(path); err != nil {
 			log.Fatalf("Failed to save config: %v", err)
 		}
@@ -197,15 +207,20 @@ func startPacketCapture(ctx context.Context, devName string) {
 				return
 			}
 			data := packet.Data()
-			if isWOLFrame(data) {
-				log.Println("Received Wake-on-LAN Magic Packet!")
-				initiateShutdown()
+			if operation := isWOLFrame(data); operation > 0 {
+				if operation == OperationWake {
+					log.Println("Received WOL Wake packet (ignoring, device already awake)")
+				} else if operation == OperationShutdown {
+					log.Println("Received WOL Shutdown packet!")
+					initiateShutdown()
+				}
 			}
 		}
 	}
 }
 
-func isWOLFrame(data []byte) bool {
+// isWOLFrame 检查是否为 WOL Magic Packet，返回操作类型（0=无效, 1=唤醒, 2=关机）
+func isWOLFrame(data []byte) int {
 	equal := func(a, b []byte) bool {
 		if len(a) != len(b) {
 			return false
@@ -219,25 +234,26 @@ func isWOLFrame(data []byte) bool {
 	}
 
 	if len(data) < 102 {
-		return false
+		return 0
 	}
 	mac, err := hex.DecodeString(strings.ReplaceAll(config.MacAddress, ":", ""))
 	if err != nil {
-		log.Fatalf("Invalid MAC address: %v", err)
+		log.Printf("Invalid MAC address: %v", err)
+		return 0
 	}
 
 	ethernetType := data[12:14]
 	if !(ethernetType[0] == 0x08 && ethernetType[1] == 0x42) {
-		return false
+		return 0
 	}
 
 	if !equal(data[14:20], []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}) {
-		return false
+		return 0
 	}
 
 	for i := 20; i < 102; i += 6 {
 		if !equal(data[i:i+6], mac) {
-			return false
+			return 0
 		}
 	}
 
@@ -247,19 +263,23 @@ func isWOLFrame(data []byte) bool {
 		extraDataConfig, err := hex.DecodeString(strings.ReplaceAll(config.ExtraData, ":", ""))
 		if err != nil || len(extraDataConfig) != 6 {
 			log.Printf("Invalid Extra Data: %v", err)
-			return false
+			return 0
 		}
-		if !equal(extraData, extraDataConfig) {
-			return false
+		// 检查前 5 个字节是否匹配，第 6 个字节作为操作类型
+		if !equal(extraData[:5], extraDataConfig[:5]) {
+			return 0
 		}
+		// 返回操作类型（第 6 个字节）
+		return int(extraData[5])
 	}
 
-	return true
+	// 如果没有配置附加数据，默认为关机操作（向后兼容）
+	return OperationShutdown
 }
 
 func initiateShutdown() {
 	shutdownSystem := func() error {
-		if os.Getenv("OS") == "Windows_NT" {
+		if runtime.GOOS == "windows" {
 			return exec.Command("shutdown", "/s", "/t", "0").Run()
 		}
 		return exec.Command("shutdown", "-h", "now").Run()
@@ -280,12 +300,13 @@ func initiateShutdown() {
 		return
 	}
 
-	num, err := strconv.Atoi(config.Shutdown_delay)
+	num, err := strconv.Atoi(config.ShutdownDelay)
 	if err != nil {
 		fmt.Println("Failed to convert string to int, use default value 60.")
-		config.Shutdown_delay = "60"
+		config.ShutdownDelay = "60"
 		num = 60
 	}
+
 	if shutdownTimer != nil {
 		shutdownTimer.Stop()
 		log.Println("The previous shutdown task was canceled.")
@@ -293,7 +314,7 @@ func initiateShutdown() {
 	startTime = time.Now()
 	shutdownDuration = time.Duration(num) * time.Second
 	shutdownTimer = time.NewTimer(shutdownDuration)
-	log.Printf("Shutdown scheduled in %s seconds. Use web UI to cancel.", config.Shutdown_delay)
+	log.Printf("Shutdown scheduled in %s seconds. Use web UI to cancel.", config.ShutdownDelay)
 	go func() {
 		<-shutdownTimer.C
 		executeShutdown()
@@ -331,6 +352,43 @@ func getRemainingTime(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Fprintln(w, int(remaining.Seconds())) // 返回剩余秒数
+}
+
+// basicAuthMiddleware Basic Auth 认证中间件
+func basicAuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 跳过 API 路径的认证检查（在具体处理函数中处理）
+		if strings.HasPrefix(r.URL.Path, "/api") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		// 静态文件需要认证
+		username, password, ok := r.BasicAuth()
+		if !ok || username != config.Username || password != config.Password {
+			w.Header().Set("WWW-Authenticate", `Basic realm="WOL Plus"`)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// apiAuthMiddleware API 认证中间件（仅对写操作需要认证）
+func apiAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// GET 请求不需要认证
+		if r.Method == http.MethodGet {
+			next(w, r)
+			return
+		}
+		username, password, ok := r.BasicAuth()
+		if !ok || username != config.Username || password != config.Password {
+			w.Header().Set("WWW-Authenticate", `Basic realm="WOL Plus API"`)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next(w, r)
+	}
 }
 
 func handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
@@ -379,16 +437,34 @@ func main() {
 
 	// 3. 启动 HTTP 服务器
 	r := mux.NewRouter()
-	// 3.1 为 API 配置路由
+
+	// 3.1 为 API 配置路由（使用认证中间件）
 	api := r.PathPrefix("/api").Subrouter()
 	api.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(config)
-	}).Methods("GET")
-	api.HandleFunc("/config", handleConfigUpdate).Methods("POST")
-	api.HandleFunc("/cancel", cancelShutdownTimer)
+		// GET 请求返回配置（隐藏密码）
+		if r.Method == http.MethodGet {
+			safeConfig := struct {
+				MacAddress    string `json:"mac_address"`
+				Interface     string `json:"interface"`
+				ExtraData     string `json:"extra_data"`
+				ShutdownDelay string `json:"shutdown_delay"`
+			}{
+				MacAddress:    config.MacAddress,
+				Interface:     config.Interface,
+				ExtraData:     config.ExtraData,
+				ShutdownDelay: config.ShutdownDelay,
+			}
+			json.NewEncoder(w).Encode(safeConfig)
+			return
+		}
+		handleConfigUpdate(w, r)
+	}).Methods("GET", "POST")
+	api.HandleFunc("/cancel", apiAuthMiddleware(cancelShutdownTimer))
 	api.HandleFunc("/remaining", getRemainingTime)
-	r.PathPrefix("/").Handler(http.FileServer(http.Dir(webuiPath)))
-	// 3.2 静态文件: 将 webuiPath 作为静态资源目录
+
+	// 3.2 静态文件（使用认证中间件）
+	r.PathPrefix("/").Handler(basicAuthMiddleware(http.FileServer(http.Dir(webuiPath))))
+
 	server = &http.Server{Addr: ":2025", Handler: r}
 
 	serverWg.Add(1)

@@ -76,9 +76,9 @@ return view.extend({
         });
 
         if (has_ewk) {
-	    o = s.option(form.Value, 'extra_data', _('Additional Data'), _('Enter 6-byte custom data (XX:XX:XX:XX:XX:XX).'));
-            o.placeholder = 'AA:BB:CC:DD:EE:FF';
-            o.datatype = 'macaddr'; // 强制格式检查
+	    o = s.option(form.Value, 'extra_data', _('Additional Data (5 bytes)'), _('Enter 5-byte custom data (XX:XX:XX:XX:XX). The 6th byte is used as operation type (01=wake, 02=shutdown).'));
+            o.placeholder = 'AA:BB:CC:DD:EE';
+            o.datatype = 'and(ucid(_etherwake, **, @.[], macaddr(!stringmatch(@, \'*:*:*:*:*:*:*\'))))';
             o.rmempty = true;
 
             o = s.option(form.Flag, 'broadcast', _('Send to broadcast address'));
@@ -91,8 +91,17 @@ return view.extend({
     },
 
     handleWakeup: function(ev) {
+        return this.handleWOLAction('wake');
+    },
+
+    handleShutdown: function(ev) {
+        return this.handleWOLAction('shutdown');
+    },
+
+    handleWOLAction: function(actionType) {
         var map = document.querySelector('#maincontent .cbi-map'),
-            data = this.formdata;
+            data = this.formdata,
+            isWake = (actionType === 'wake');
 
         return dom.callClassMethod(map, 'save').then(function() {
             if (!data.wol.mac)
@@ -107,8 +116,14 @@ return view.extend({
                 if (data.wol.broadcast == '1')
                     args.push('-b');
 
+                // 构造附加数据：5字节自定义数据 + 1字节操作类型
                 if (data.wol.extra_data) {
-                    args.push('-p', data.wol.extra_data);
+                    var extraData = data.wol.extra_data + ':';
+                    extraData += isWake ? '01' : '02'; // 01=唤醒, 02=关机
+                    args.push('-p', extraData);
+                } else if (!isWake) {
+                    // 关机操作需要附加数据，如果没有配置则使用默认值
+                    args.push('-p', '00:00:00:00:00:02');
                 }
 
                 args.push(data.wol.mac);
@@ -117,12 +132,12 @@ return view.extend({
                 args.push('-v', data.wol.mac);
             }
 
-            ui.showModal(_('Waking host'), [
+            ui.showModal(isWake ? _('Waking host') : _('Shutting down host'), [
                 E('p', { 'class': 'spinning' }, [ _('Starting WoL+ utility…') ])
             ]);
 
             return fs.exec(bin, args).then(function(res) {
-                ui.showModal(_('Waking host'), [
+                ui.showModal(isWake ? _('Waking host') : _('Shutting down host'), [
                     res.stderr ? E('p', [ res.stdout ]) : '',
                     res.stderr ? E('pre', [ res.stderr ]) : '',
                     E('div', { 'class': 'right' }, [
@@ -135,19 +150,24 @@ return view.extend({
             }).catch(function(err) {
                 ui.hideModal();
                 ui.addNotification(null, [
-                    E('p', [ _('Waking host failed: '), err ])
+                    E('p', [ (isWake ? _('Waking host failed') : _('Shutting down host failed')) + ': ', err ])
                 ]);
             });
         });
     },
 
     addFooter: function() {
-        return E('div', { 'class': 'cbi-page-actions' }, 
+        return E('div', { 'class': 'cbi-page-actions' },
             [
                 E('button', {
                     'class': 'cbi-button cbi-button-save',
                     'click': L.ui.createHandlerFn(this, 'handleWakeup')
                 }, [ _('Wake up host') ]),
+                E('button', {
+                    'class': 'cbi-button cbi-button-reset',
+                    'click': L.ui.createHandlerFn(this, 'handleShutdown'),
+                    'style': 'margin-left: 10px;'
+                }, [ _('Shutdown host') ])
             ]
         );
     }
