@@ -1,5 +1,8 @@
 name: Build IPK Package
 
+permissions:
+  contents: write
+
 on:
   push:
     tags:
