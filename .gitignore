@@ -5,3 +5,6 @@ Output
 wolp
 *.exe
 *.log
+*.ipk
+wolp-test
+ipk-build/
