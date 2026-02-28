@@ -38,11 +38,18 @@ jobs:
         with:
           go-version: '1.21'
 
+      - name: Install libpcap-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpcap-dev gcc-mingw-w64
+
       - name: Build client
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 0
+          CGO_ENABLED: 1
+          # Windows 交叉编译使用 mingw
+          CC: ${{ matrix.goos == 'windows' && 'x86_64-w64-mingw32-gcc' || '' }}
         run: |
           cd client/src
           go build -o ../../bin/${{ matrix.asset_name }} .
@@ -60,26 +67,3 @@ jobs:
           files: bin/${{ matrix.asset_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  build-windows-installer:
-    runs-on: windows-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.21'
-
-      - name: Build Windows binary
-        run: |
-          cd client/src
-          go build -o ../../bin/wolp.exe .
-
-      - name: Upload Windows binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: wolp-windows-installer
-          path: bin/wolp.exe
