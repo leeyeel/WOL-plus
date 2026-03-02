@@ -21,6 +21,23 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            # 从 tag 中提取版本号 (如 v0.0.5 -> 0.0.5)
+            VERSION=$(echo "${{ github.ref }}" | sed 's|refs/tags/v||')
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "Building from tag: v$VERSION"
+          else
+            # 非tag构建，使用默认版本号
+            VERSION="dev"
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "Building from branch: ${{ github.ref_name }}"
+          fi
 
       - name: Install dependencies
         run: |
@@ -31,7 +48,7 @@ jobs:
         run: |
           cd openwrt
           chmod +x build-ipk.sh
-          ./build-ipk.sh
+          VERSION="${{ steps.get_version.outputs.version }}" ./build-ipk.sh
 
       - name: Upload IPK artifacts
         uses: actions/upload-artifact@v4

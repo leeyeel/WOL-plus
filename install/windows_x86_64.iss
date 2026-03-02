@@ -1,13 +1,19 @@
 ; wolp.iss - Inno Setup Script
+; 可通过命令行参数传入版本号: ISCC.exe /DVERSION=0.0.5 windows_x86_64.iss
+
+#ifndef VERSION
+  #define VERSION "1.0.0"
+#endif
+
 #define MyAppName "wolp"
 #define MyAppExeName "wolp-service.exe"
 
 [Setup]
 AppName={#MyAppName}
-AppVersion=1.0.0
+AppVersion={#VERSION}
 AppPublisher=leo
-AppPublisherURL=https://github.com/leeyeel/WOL-plus    
-OutputBaseFilename=installer_windows_inno_x64
+AppPublisherURL=https://github.com/leeyeel/WOL-plus
+OutputBaseFilename=installer_windows_inno_x64_v{#VERSION}
 DefaultDirName={commonpf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 PrivilegesRequired=admin
@@ -38,7 +44,7 @@ Type: files; Name: "{app}\wolp-service.err.log"
 Type: files; Name: "{app}\winsw.exe"
 Type: files; Name: "{app}\wolp-service.xml"
 Type: files; Name: "{app}\wolp.exe"
-Type: dirifempty; Name: "{app}" 
+Type: dirifempty; Name: "{app}"
 
 
 [Code]

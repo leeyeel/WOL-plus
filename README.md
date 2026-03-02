@@ -8,25 +8,25 @@
 
 - **远程唤醒**: 发送 WOL Magic Packet 唤醒局域网内设备
 - **远程关机**: 接收带有 6 字节附加数据的 WOL Magic Packet 实现关机
-- **Web UI**: 客户端提供美观的 Web 配置界面，支持认证
+- **Web UI**: 服务端提供美观的 Web 配置界面，支持认证
 - **倒计时关机**: 支持配置关机倒计时时长，可取消正在进行的关机任务
 - **多平台支持**:
-  - OpenWrt 路由器端（amd64、arm64）
-  - Windows、Linux 桌面端
+  - OpenWrt 路由器端（发送端，amd64、arm64）
+  - Windows 桌面端（接收端 + WebUI）
 
 ## 界面预览
 
-### OpenWrt 端 (LuCI)
+### OpenWrt 端 (LuCI - 发送端)
 
 ![Wake On LAN+](openwrt/wolp.png)
 
-### 客户端 Web UI
+### Windows 端 (WebUI - 接收端)
 
-![WOLP client](client/wolp-client.jpg)
+![WOLP Server](client/wolp-client.jpg)
 
 ## 快速开始
 
-### OpenWrt 端安装
+### OpenWrt 端安装（发送端）
 
 **如果你的 OpenWrt 中已经安装了 wol，请先卸载** (`opkg remove luci-app-wol`)
 
@@ -64,26 +64,13 @@ scp openwrt/wol.js root@<openwrt-ip>:/www/luci-static/resources/view/
 scp openwrt/wol.zh-cn.lmo root@<openwrt-ip>:/usr/lib/lua/luci/i18n/
 ```
 
-### 客户端安装
+### Windows 端安装（接收端 + WebUI）
 
-#### Windows
+从 [Releases](https://github.com/leeyeel/WOL-plus/releases) 下载安装包（如 `installer_windows_inno_x64_v0.0.5.exe`）：
 
-下载 `installer_windows_inno_x64.exe` 安装包：
-- [Releases 页面](https://github.com/leeyeel/WOL-plus/releases) - 查找最新版本
-- 下载后直接运行安装程序即可
-
-> **注意**: Windows 安装包需在 Windows 环境下手动构建后上传到 Releases
-
-#### Linux
-
-从源码编译安装：
-
-```bash
-git clone https://github.com/leeyeel/WOL-plus.git
-cd WOL-plus
-make
-sudo make install
-```
+1. 下载后直接运行安装程序
+2. 安装完成后服务会自动启动
+3. 访问 `http://<本机-ip>:2025` 进行配置
 
 ### 使用说明
 
@@ -91,15 +78,15 @@ sudo make install
 
 **默认凭据**: `admin` / `admin123`（请登录后立即修改）
 
-#### OpenWrt 端配置
+#### OpenWrt 端配置（发送端）
 
 1. 在 LuCI 界面配置目标设备的 MAC 地址
 2. 附加数据填写 **6 字节**十六进制（如 `AA:BB:CC:DD:EE:FF`）
 3. 点击"发送"按钮
 
-#### 客户端 Web UI
+#### Windows 端 WebUI（接收端）
 
-1. 访问 `http://<客户端-ip>:2025`
+1. 访问 `http://<windows-ip>:2025`
 2. 使用默认凭据登录
 3. 配置附加数据（需与 OpenWrt 端配置一致）
 4. 配置关机倒计时时长
@@ -109,38 +96,33 @@ sudo make install
 
 ```
 ┌─────────────────┐     WOL Magic Packet            ┌─────────────────┐
-│   OpenWrt 端    │ ─────────────────────────▶      │    客户端       │
+│   OpenWrt 端    │ ─────────────────────────▶      │   Windows 端    │
 │  (LuCI Web UI)  │   附加数据: XX:XX:XX:XX:XX:XX   │   (Go 服务)     │
-│                 │   (固定 6 字节)                 │                 │
+│   发送端         │   (固定 6 字节)                 │   接收端 + WebUI │
 └─────────────────┘                                 └─────────────────┘
 ```
 
-当客户端接收到带有匹配附加数据的 WOL Magic Packet 时，触发倒计时关机。
+当 Windows 端接收到带有匹配附加数据的 WOL Magic Packet 时，触发倒计时关机。
 
 ## 开发指南
 
-### 构建 IPK 包
+### 构建 IPK 包（OpenWrt 发送端）
 
 ```bash
 cd openwrt
 chmod +x build-ipk.sh
+# 默认版本 1.0.0
 ./build-ipk.sh
+# 指定版本号
+VERSION=0.0.5 ./build-ipk.sh
 ```
 
-生成的 IPK 包位于 `release/` 目录。
+生成的 IPK 包位于 `release/` 目录（文件名包含版本号）：
+- `luci-app-wolp_1.0.0_amd64.ipk`
+- `luci-app-wolp_1.0.0_arm64.ipk`
+- 或 `luci-app-wolp_0.0.5_amd64.ipk`（如果指定了版本）
 
-当前构建架构：`amd64`、`arm64`
-
-### 构建客户端
-
-#### Linux
-
-```bash
-cd WOL-plus
-make
-```
-
-#### Windows
+### 构建 Windows 安装包（接收端）
 
 在 Windows 环境下执行：
 
@@ -149,22 +131,24 @@ make
 .\build.ps1
 
 # 打包（需要安装 Inno Setup）
+# 默认版本 1.0.0
 iscc .\install\windows_x86_64.iss
+# 指定版本号
+iscc /DVERSION=0.0.5 .\install\windows_x86_64.iss
 ```
 
-生成的安装包位于 `install\Output\installer_windows_inno_x64.exe`
+生成的安装包位于 `install\Output\` 目录（文件名包含版本号）：
+- `installer_windows_inno_x64_v1.0.0.exe`
+- 或 `installer_windows_inno_x64_v0.0.5.exe`（如果指定了版本）
 
 ### GitHub Actions 自动构建
 
-项目配置了 CI/CD 自动构建：
+项目配置了 CI/CD 自动构建，构建产物文件名包含 tag 版本号：
 
-- **IPK 包**: 推送到 main 分支或创建 tag 时自动构建（amd64、arm64）
-- **客户端二进制**: 创建 tag 时自动构建多平台版本
-
-支持的平台：
-- OpenWrt (amd64、arm64)
-- Linux (amd64、arm64)
-- Windows (amd64)
+- **IPK 包**: 推送到 main 分支或创建 tag 时自动构建
+  - Tag `v0.0.5` → `luci-app-wolp_0.0.5_amd64.ipk`、`luci-app-wolp_0.0.5_arm64.ipk`
+- **Windows 安装包**: 创建 tag 时自动构建
+  - Tag `v0.0.5` → `installer_windows_inno_x64_v0.0.5.exe`
 
 ## 许可证
 

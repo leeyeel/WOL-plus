@@ -9,8 +9,8 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 BUILD_DIR="$SCRIPT_DIR/ipk-build"
 OUTPUT_DIR="$PROJECT_ROOT/release"
 
-# 版本号
-VERSION="1.0.0"
+# 版本号 (可通过环境变量 VERSION 传入，默认为 1.0.0)
+VERSION="${VERSION:-1.0.0}"
 PACKAGE_NAME="luci-app-wolp"
 
 # 要构建的架构列表
@@ -18,6 +18,7 @@ ARCHITECTURES=("amd64" "arm64")
 
 echo "=========================================="
 echo "  Building luci-app-wolp ipk packages"
+echo "  Version: $VERSION"
 echo "  Architectures: ${ARCHITECTURES[*]}"
 echo "=========================================="
 
@@ -142,10 +143,10 @@ ls -lh "$OUTPUT_DIR/"*.ipk 2>/dev/null || echo "No IPK files found"
 echo ""
 echo "Install on OpenWrt:"
 echo "  1. Copy ipk file to OpenWrt:"
-echo "     scp luci-app-wolp_*.ipk root@<openwrt-ip>:/tmp/"
+echo "     scp ${PACKAGE_NAME}_*.ipk root@<openwrt-ip>:/tmp/"
 echo ""
 echo "  2. Install on OpenWrt:"
-echo "     opkg install /tmp/luci-app-wolp_*.ipk"
+echo "     opkg install /tmp/${PACKAGE_NAME}_*.ipk"
 echo ""
 echo "  3. Remove package:"
 echo "     opkg remove luci-app-wolp"
