@@ -1,6 +1,7 @@
 # Wake On LAN Plus
 
-> 通过 WOL Magic Packet 实现远程唤醒和关机
+> 通过 WOL Magic Packet 实现远程唤醒和关机。
+> 通常 Wake On LAN用于网络唤醒设备，WOL-Plus则增加了关机功能。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
