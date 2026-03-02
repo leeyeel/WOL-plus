@@ -1,0 +1,478 @@
+/**
+ * 组件样式
+ */
+
+/* 容器 */
+.container {
+    width: 100%;
+    max-width: 420px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    padding: var(--spacing-5xl);
+    border-radius: var(--radius-2xl);
+    box-shadow: var(--shadow-lg);
+}
+
+/* 表单组 */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 18px;
+}
+
+.form-group label {
+    font-weight: 500;
+    margin-bottom: var(--spacing-md);
+    color: var(--color-text-secondary);
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+}
+
+.form-group label svg {
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+.form-group input {
+    padding: var(--spacing-xl) var(--spacing-xl);
+    padding-left: var(--spacing-xl);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    font-size: 15px;
+    transition: all 0.3s ease;
+    background: var(--color-bg-light);
+    height: 44px;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    background: white;
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+}
+
+.form-group input:disabled {
+    background: var(--color-bg-disabled);
+    color: var(--color-text-muted);
+    cursor: not-allowed;
+}
+
+.form-group input[readonly] {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.08));
+    font-weight: 600;
+    color: var(--color-primary);
+    text-align: center;
+    font-size: 18px;
+}
+
+/* ========== 字段标签增强 ========== */
+.field-label {
+    justify-content: space-between !important;
+}
+
+.byte-count {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    background: var(--color-bg-light);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 400;
+}
+
+.byte-count.valid {
+    color: var(--color-success);
+    background: rgba(40, 167, 69, 0.1);
+}
+
+/* ========== 输入框包装器 ========== */
+.input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-wrapper input {
+    flex: 1;
+    padding-right: 40px;
+}
+
+.input-status {
+    position: absolute;
+    right: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.status-icon {
+    width: 16px;
+    height: 16px;
+    opacity: 0.4;
+}
+
+/* 验证状态 */
+.input-wrapper.valid .input-status {
+    background: rgba(40, 167, 69, 0.1);
+}
+
+.input-wrapper.valid .status-icon {
+    stroke: var(--color-success);
+    opacity: 1;
+}
+
+.input-wrapper.invalid .input-status {
+    background: rgba(220, 53, 69, 0.1);
+}
+
+.input-wrapper.invalid .status-icon {
+    stroke: var(--color-danger);
+    opacity: 1;
+}
+
+.input-wrapper.invalid input {
+    border-color: var(--color-danger);
+}
+
+/* ========== 十六进制输入框 ========== */
+.hex-input {
+    font-family: 'SF Mono', 'Monaco', 'Consolas', 'Courier New', monospace;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.hex-input::placeholder {
+    text-transform: none;
+    letter-spacing: normal;
+    font-family: inherit;
+}
+
+/* ========== 字段提示 ========== */
+.field-hint {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 6px;
+}
+
+.hint-text {
+    font-size: 11px;
+    color: var(--color-text-muted);
+}
+
+.hint-example {
+    font-size: 11px;
+    color: var(--color-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.hint-example:hover {
+    color: var(--color-secondary);
+    text-decoration: underline;
+}
+
+/* 按钮组 */
+.button-group {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-lg);
+    margin-top: var(--spacing-3xl);
+}
+
+button {
+    flex: 1;
+    padding: var(--spacing-xl) 20px;
+    border: none;
+    border-radius: var(--radius-lg);
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+}
+
+button svg {
+    vertical-align: middle;
+}
+
+/* 按钮变体 */
+.save-btn {
+    background: var(--gradient-primary);
+    color: white;
+    box-shadow: var(--shadow-sm);
+}
+
+.save-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.save-btn:active {
+    transform: translateY(0);
+}
+
+.cancel-btn {
+    background: var(--gradient-danger);
+    color: white;
+    box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
+}
+
+.cancel-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(245, 87, 108, 0.5);
+}
+
+.cancel-btn:active {
+    transform: translateY(0);
+}
+
+/* ========== 头部按钮组 ========== */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+/* 图标按钮基础样式 - 覆盖 button 默认样式 */
+.icon-btn {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    flex: 0 0 38px;
+    border-radius: var(--radius-lg);
+    border: none;
+    background: transparent;
+    font-size: 0;
+}
+
+.icon-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* 设置按钮 - 中性色调 */
+.settings-btn {
+    background: var(--color-bg-light, #fafafa);
+}
+
+.settings-btn svg {
+    stroke: var(--color-text-secondary, #555);
+}
+
+.settings-btn:hover {
+    background: #e8e8e8;
+}
+
+.settings-btn:hover svg {
+    stroke: var(--color-text, #333);
+}
+
+.settings-btn:active {
+    transform: scale(0.95);
+}
+
+/* 退出按钮 - 警告色调 */
+.logout-btn {
+    background: rgba(245, 87, 108, 0.12);
+}
+
+.logout-btn svg {
+    stroke: var(--color-warning, #f5576c);
+}
+
+.logout-btn:hover {
+    background: var(--color-warning, #f5576c);
+    box-shadow: 0 4px 12px rgba(245, 87, 108, 0.3);
+}
+
+.logout-btn:hover svg {
+    stroke: white;
+}
+
+.logout-btn:active {
+    transform: scale(0.95);
+}
+
+/* 返回按钮 */
+.back-btn {
+    background: var(--color-bg-light, #fafafa);
+}
+
+.back-btn svg {
+    stroke: var(--color-text-secondary, #555);
+}
+
+.back-btn:hover {
+    background: #e8e8e8;
+}
+
+.back-btn:hover svg {
+    stroke: var(--color-text, #333);
+}
+
+.back-btn:active {
+    transform: scale(0.95);
+}
+
+/* 文字按钮（用于其他地方） */
+.text-btn {
+    background: transparent;
+    color: var(--color-text-muted, #888);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border: 1px solid var(--color-border, #e0e0e0);
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    transition: all 0.3s ease;
+}
+
+.text-btn:hover {
+    background: #f5f5f5;
+    color: var(--color-text-secondary, #555);
+    border-color: #ccc;
+}
+
+/* ========== 头部区域 ========== */
+.header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-3xl);
+}
+
+/* 头部标题区 */
+.header-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.header-title h2 {
+    margin: 0;
+}
+
+/* 应用 Logo */
+.app-logo {
+    width: 28px;
+    height: 28px;
+    color: var(--color-primary, #667eea);
+}
+
+/* 消息提示 */
+#message,
+#loginMessage,
+#settingsMessage {
+    margin-top: var(--spacing-xl);
+    text-align: center;
+    font-size: 14px;
+    font-weight: 500;
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-lg);
+}
+
+#message {
+    color: var(--color-success);
+    background: rgba(40, 167, 69, 0.1);
+}
+
+#loginMessage,
+#settingsMessage {
+    color: var(--color-danger);
+    background: rgba(220, 53, 69, 0.1);
+}
+
+/* 状态指示器 */
+.status-indicator {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: var(--spacing-md);
+}
+
+.status-online {
+    background: var(--color-success);
+    box-shadow: 0 0 10px var(--color-success);
+}
+
+.status-offline {
+    background: var(--color-danger);
+    box-shadow: 0 0 10px var(--color-danger);
+}
+
+/* 关机倒计时区域 */
+.countdown-section {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+    padding: var(--spacing-2xl);
+    border-radius: var(--radius-xl);
+    margin-bottom: var(--spacing-2xl);
+}
+
+.countdown-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.countdown-header span {
+    font-weight: 500;
+    color: var(--color-text-secondary);
+}
+
+.countdown-inputs {
+    display: flex;
+    gap: var(--spacing-lg);
+}
+
+.countdown-field {
+    flex: 1;
+}
+
+.countdown-field label {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin-bottom: 4px;
+    display: block;
+}
+
+.countdown-field input {
+    width: 100%;
+    padding: var(--spacing-xl) var(--spacing-xl);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    text-align: center;
+    font-size: 15px;
+}
+
+/* 网络配置区域 */
+.network-section {
+    border-top: 1px solid var(--color-border-light);
+    padding-top: var(--spacing-2xl);
+}
+
+/* 设置面板 */
+#settingsPanel {
+    display: none;
+}
+
+#settingsPanel.show {
+    display: block;
+}
+
+/* 登录容器 */
+#loginContainer {
+    animation: fadeIn 0.5s ease;
+}
+
+/* 配置容器 */
+#configContainer {
+    animation: slideIn 0.4s ease;
+}

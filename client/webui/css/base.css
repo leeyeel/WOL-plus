@@ -1,0 +1,98 @@
+/**
+ * 基础样式和 CSS 变量
+ */
+
+:root {
+    /* 颜色变量 */
+    --color-primary: #667eea;
+    --color-secondary: #764ba2;
+    --color-success: #28a745;
+    --color-danger: #dc3545;
+    --color-warning: #f5576c;
+    --color-text: #333;
+    --color-text-secondary: #555;
+    --color-text-muted: #888;
+    --color-border: #e0e0e0;
+    --color-border-light: #eee;
+    --color-bg-light: #fafafa;
+    --color-bg-disabled: #f0f0f0;
+
+    /* 渐变 */
+    --gradient-primary: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+    --gradient-danger: linear-gradient(135deg, #f093fb, var(--color-warning));
+    --gradient-bg: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+
+    /* 阴影 */
+    --shadow-sm: 0 4px 15px rgba(102, 126, 234, 0.4);
+    --shadow-md: 0 6px 20px rgba(102, 126, 234, 0.5);
+    --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.3);
+
+    /* 圆角 */
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 10px;
+    --radius-xl: 15px;
+    --radius-2xl: 20px;
+
+    /* 间距 */
+    --spacing-xs: 4px;
+    --spacing-sm: 6px;
+    --spacing-md: 8px;
+    --spacing-lg: 12px;
+    --spacing-xl: 16px;
+    --spacing-2xl: 20px;
+    --spacing-3xl: 24px;
+    --spacing-4xl: 28px;
+    --spacing-5xl: 32px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--gradient-bg);
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+h2 {
+    text-align: center;
+    margin: 0 0 28px 0;
+    color: var(--color-text);
+    font-size: 24px;
+    font-weight: 600;
+}
+
+small {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+/* 响应式设计 */
+@media (max-width: 480px) {
+    .container {
+        max-width: 100%;
+        margin: 10px;
+        padding: 24px;
+    }
+
+    h2 {
+        font-size: 20px;
+    }
+
+    .button-group {
+        flex-direction: column;
+    }
+
+    button {
+        width: 100%;
+    }
+}

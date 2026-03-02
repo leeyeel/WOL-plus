@@ -18,10 +18,13 @@ install:
 	install -d $(CONFIGDIR)
 	install -m 644 client/wolp.json $(CONFIGDIR)/wolp.json
 
-	# 安装webui
+	# 安装 webui
 	install -d $(ETCDIR)/webui
+	install -d $(ETCDIR)/webui/css
+	install -d $(ETCDIR)/webui/js
 	install -m 644 client/webui/index.html $(ETCDIR)/webui/index.html
-	install -m 644 client/webui/style.css $(ETCDIR)/webui/style.css
+	install -m 644 client/webui/css/*.css $(ETCDIR)/webui/css/
+	install -m 644 client/webui/js/*.js $(ETCDIR)/webui/js/
 
 	# 安装 Systemd 服务文件
 	install -m 644 client/systemd/wolp.service $(SYSTEMD_DIR)/wolp.service

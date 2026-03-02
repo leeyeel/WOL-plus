@@ -1,0 +1,43 @@
+/**
+ * 动画效果
+ */
+
+/* 淡入动画 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 滑入动画 */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* 脉冲动画 */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+/* 倒计时活动状态 */
+.countdown-active {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* 设置面板动画 */
+#settingsPanel {
+    animation: slideIn 0.3s ease;
+}
