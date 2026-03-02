@@ -51,6 +51,7 @@ h2 {
     font-size: 15px;
     transition: all 0.3s ease;
     background: #fafafa;
+    height: 44px;
 }
 
 .form-group input:focus {
@@ -123,19 +124,20 @@ button {
 }
 
 .logout-btn {
-    background: linear-gradient(135deg, #a8a8a8, #888);
-    color: white;
-    padding: 8px 20px;
-    border: none;
-    border-radius: 8px;
+    background: transparent;
+    color: #888;
+    padding: 6px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
     transition: all 0.3s ease;
 }
 
 .logout-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    background: #f5f5f5;
+    color: #555;
+    border-color: #ccc;
 }
 
 .header-row {
@@ -233,6 +235,51 @@ small {
         opacity: 1;
         transform: translateX(0);
     }
+}
+
+/* 设置面板 */
+#settingsPanel {
+    display: none;
+    animation: slideIn 0.3s ease;
+}
+
+#settingsPanel.show {
+    display: block;
+}
+
+.settings-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: #f5f5f5;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: none;
+}
+
+.settings-icon:hover {
+    background: #e0e0e0;
+}
+
+.back-btn {
+    background: #6c757d;
+    color: white;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.back-btn:hover {
+    background: #5a6268;
 }
 
 /* 响应式设计 */
