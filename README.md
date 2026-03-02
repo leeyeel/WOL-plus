@@ -12,7 +12,7 @@
 - **Web UI**: 服务端提供美观的 Web 配置界面，支持认证
 - **倒计时关机**: 支持配置关机倒计时时长，可取消正在进行的关机任务
 - **多平台支持**:
-  - OpenWrt 路由器端（发送端，amd64、arm64）
+  - OpenWrt 路由器端（发送端，x86_64、aarch64）
   - Windows 桌面端（接收端 + WebUI）
 
 ## 界面预览
@@ -29,28 +29,35 @@
 
 ### OpenWrt 端安装（发送端）
 
-**如果你的 OpenWrt 中已经安装了 wol，请先卸载** (`opkg remove luci-app-wol`)
+**重要**: 如果您的 OpenWrt 中已经安装了官方的 `luci-app-wol`，请先卸载：
+
+```bash
+opkg remove luci-app-wol
+```
 
 #### 方法一：使用 IPK 包安装（推荐）
 
 从 [Releases](https://github.com/leeyeel/WOL-plus/releases) 下载对应架构的 IPK 包：
 
 ```bash
-# amd64 架构
-wget https://github.com/leeyeel/WOL-plus/releases/download/v*/luci-app-wolp_*_amd64.ipk
+# x86_64 架构
+wget https://github.com/leeyeel/WOL-plus/releases/download/v*/luci-app-wolp_*_x86_64.ipk
 
-# arm64 架构
-wget https://github.com/leeyeel/WOL-plus/releases/download/v*/luci-app-wolp_*_arm64.ipk
+# aarch64 架构
+wget https://github.com/leeyeel/WOL-plus/releases/download/v*/luci-app-wolp_*_aarch64.ipk
 
 # 上传到 OpenWrt
 scp luci-app-wolp_*.ipk root@<openwrt-ip>:/tmp/
 
 # 登录 OpenWrt 安装
 ssh root@<openwrt-ip>
-opkg install /tmp/luci-app-wolp_*.ipk
 
-# 确保依赖已安装
+# 先安装依赖
+opkg update
 opkg install etherwake
+
+# 安装 IPK 包
+opkg install /tmp/luci-app-wolp_*.ipk
 ```
 
 安装完成后，访问 LuCI 界面 → 服务 → Wake on LAN+
@@ -119,9 +126,14 @@ VERSION=0.0.5 ./build-ipk.sh
 ```
 
 生成的 IPK 包位于 `release/` 目录（文件名包含版本号）：
-- `luci-app-wolp_1.0.0_amd64.ipk`
-- `luci-app-wolp_1.0.0_arm64.ipk`
-- 或 `luci-app-wolp_0.0.5_amd64.ipk`（如果指定了版本）
+- `luci-app-wolp_1.0.0_x86_64.ipk`
+- `luci-app-wolp_1.0.0_aarch64.ipk`
+- 或 `luci-app-wolp_0.0.5_x86_64.ipk`（如果指定了版本）
+
+**注意**:
+- IPK 包使用 **tar.gz 格式**（OpenWrt opkg 兼容格式）
+- 架构名称使用 OpenWrt 标准命名：`x86_64`（而非 amd64）、`aarch64`（而非 arm64）
+- 与官方 `luci-app-wol` 包冲突，安装前需要先卸载
 
 ### 构建 Windows 安装包（接收端）
 
@@ -147,7 +159,7 @@ iscc /DVERSION=0.0.5 .\install\windows_x86_64.iss
 项目配置了 CI/CD 自动构建，构建产物文件名包含 tag 版本号：
 
 - **IPK 包**: 推送到 main 分支或创建 tag 时自动构建
-  - Tag `v0.0.5` → `luci-app-wolp_0.0.5_amd64.ipk`、`luci-app-wolp_0.0.5_arm64.ipk`
+  - Tag `v0.0.5` → `luci-app-wolp_0.0.5_x86_64.ipk`、`luci-app-wolp_0.0.5_aarch64.ipk`
 - **Windows 安装包**: 创建 tag 时自动构建
   - Tag `v0.0.5` → `installer_windows_inno_x64_v0.0.5.exe`
 

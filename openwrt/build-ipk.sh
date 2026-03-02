@@ -1,10 +1,12 @@
 #!/bin/bash
-# Build ipk packages for luci-app-wolp (amd64 and arm64)
+# Build ipk packages for luci-app-wolp (x86_64 and aarch64)
 #
 # IPK 包说明：
 # - 依赖 etherwake 包（需单独安装：opkg install etherwake）
 # - 安装 wol.js 到 /www/luci-static/resources/view/
 # - 安装 wol.zh-cn.lmo 到 /usr/lib/lua/luci/i18n/
+#
+# 打包格式：使用 tar.gz 格式（OpenWrt opkg 兼容）
 
 set -e
 
@@ -19,7 +21,8 @@ OUTPUT_DIR="$PROJECT_ROOT/release"
 
 VERSION="${VERSION:-1.0.0}"
 PACKAGE_NAME="luci-app-wolp"
-ARCHITECTURES=("amd64" "arm64")
+# OpenWrt 架构命名: amd64->x86_64, arm64->aarch64
+ARCHITECTURES=("x86_64" "aarch64")
 
 # ==============================================================================
 # 打印信息
@@ -29,6 +32,7 @@ echo "=========================================="
 echo "  Building luci-app-wolp ipk packages"
 echo "  Version: $VERSION"
 echo "  Architectures: ${ARCHITECTURES[*]}"
+echo "  Format: tar.gz (OpenWrt opkg compatible)"
 echo "=========================================="
 
 # ==============================================================================
@@ -64,14 +68,14 @@ build_ipk() {
     cat > "$PACKAGE_DIR/CONTROL/control" << EOF
 Package: luci-app-wolp
 Version: $VERSION
-Depends: libc, +luci-compat, +etherwake
+Depends: libc, luci-compat, etherwake
 Provides: luci-app-wolp
 Section: luci
 Architecture: $ARCH
 Maintainer: leeyeel
-Description: Wake On LAN Plus - 远程唤醒和关机
- OpenWrt 路由器端的 WOL+ 应用，支持通过 Web UI
- 发送带附加数据的 WOL Magic Packet 到局域网内的设备。
+Description: WOL+ - Remote wake and shutdown
+ OpenWrt WOL+ application with Web UI support.
+ Sends WOL Magic Packet with additional data to LAN devices.
 EOF
 
     # --------------------------------------------------
@@ -163,37 +167,39 @@ EOF
     fi
 
     # --------------------------------------------------
-    # 构建 IPK 包
+    # 构建 IPK 包（tar.gz 格式）
     # --------------------------------------------------
 
-    # 创建 data.tar.gz (包含 www/ 和 usr/)
-    echo "Creating data.tar.gz..."
-    cd "$PACKAGE_DIR"
-    tar czf "$BUILD_DIR/data.tar.gz" www usr
-    cd "$PROJECT_ROOT"
+    # 创建 debian-binary
+    echo "2.0" > "$PACKAGE_DIR/debian-binary"
 
-    # 创建 control.tar.gz (包含 CONTROL/ 目录下的所有文件)
+    # 创建 control.tar.gz (从 CONTROL 目录，需要 ./ 前缀)
     echo "Creating control.tar.gz..."
     cd "$PACKAGE_DIR/CONTROL"
-    tar czf "$BUILD_DIR/control.tar.gz" .
+    tar --numeric-owner --owner=0 --group=0 -czf "$BUILD_DIR/control.tar.gz" .
     cd "$PROJECT_ROOT"
 
-    # 创建 debian-binary
-    echo "2.0" > "$BUILD_DIR/debian-binary"
+    # 创建 data.tar.gz (从包根目录，排除 CONTROL 和 debian-binary)
+    echo "Creating data.tar.gz..."
+    cd "$PACKAGE_DIR"
+    tar --numeric-owner --owner=0 --group=0 -czf "$BUILD_DIR/data.tar.gz" www usr 2>/dev/null || \
+    tar --numeric-owner --owner=0 --group=0 -czf "$BUILD_DIR/data.tar.gz" www
+    cd "$PROJECT_ROOT"
 
-    # 使用 ar 命令打包成 .ipk
-    echo "Building ipk package..."
+    # 复制 debian-binary 到 BUILD_DIR
+    cp "$PACKAGE_DIR/debian-binary" "$BUILD_DIR/debian-binary"
+
+    # 将 debian-binary, control.tar.gz, data.tar.gz 打包成 tar.gz 格式的 IPK
+    echo "Building ipk package (tar.gz format)..."
     cd "$BUILD_DIR"
-    ar r "$OUTPUT_DIR/$IPK_FILE" debian-binary control.tar.gz data.tar.gz
+    tar --numeric-owner --owner=0 --group=0 -czf "$OUTPUT_DIR/$IPK_FILE" debian-binary control.tar.gz data.tar.gz
     cd "$PROJECT_ROOT"
 
     # --------------------------------------------------
     # 清理临时文件
     # --------------------------------------------------
-    rm -rf "$BUILD_DIR/data.tar.gz" \
-            "$BUILD_DIR/control.tar.gz" \
-            "$BUILD_DIR/debian-binary" \
-            "$PACKAGE_DIR"
+    rm -rf "$BUILD_DIR/control.tar.gz" "$BUILD_DIR/data.tar.gz" "$BUILD_DIR/debian-binary"
+    rm -rf "$PACKAGE_DIR"
 
     echo "Built: $OUTPUT_DIR/$IPK_FILE"
     ls -lh "$OUTPUT_DIR/$IPK_FILE"
