@@ -45,7 +45,7 @@ build_ipk() {
     cat > "$PACKAGE_DIR/CONTROL/control" << EOF
 Package: luci-app-wolp
 Version: $VERSION
-Depends: libc, +luci-compat +etherwake
+Depends: libc, +luci-compat, +etherwake
 Provides: luci-app-wolp
 Section: luci
 Architecture: $ARCH
@@ -108,7 +108,7 @@ EOF
     # 创建 control.tar.gz
     echo "Creating control.tar.gz..."
     cd "$PACKAGE_DIR/CONTROL"
-    tar czf "$BUILD_DIR/control-$ARCH.tar.gz" ./*
+    tar czf "$BUILD_DIR/control-$ARCH.tar.gz" .
     cd "$PROJECT_ROOT"
 
     # 创建 debian-binary
