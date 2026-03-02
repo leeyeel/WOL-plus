@@ -102,13 +102,13 @@ EOF
     # 创建 data.tar.gz
     echo "Creating data.tar.gz..."
     cd "$PACKAGE_DIR"
-    tar czf "$BUILD_DIR/data-$ARCH.tar.gz" www usr
+    tar czf "$BUILD_DIR/data.tar.gz" www usr
     cd "$PROJECT_ROOT"
 
     # 创建 control.tar.gz
     echo "Creating control.tar.gz..."
     cd "$PACKAGE_DIR/CONTROL"
-    tar czf "$BUILD_DIR/control-$ARCH.tar.gz" .
+    tar czf "$BUILD_DIR/control.tar.gz" .
     cd "$PROJECT_ROOT"
 
     # 创建 debian-binary
@@ -117,11 +117,11 @@ EOF
     # 构建 ipk 包
     echo "Building ipk package..."
     cd "$BUILD_DIR"
-    ar r "$OUTPUT_DIR/$IPK_FILE" debian-binary control-$ARCH.tar.gz data-$ARCH.tar.gz
+    ar r "$OUTPUT_DIR/$IPK_FILE" debian-binary control.tar.gz data.tar.gz
     cd "$PROJECT_ROOT"
 
     # 清理临时文件
-    rm -rf "$BUILD_DIR/data-$ARCH.tar.gz" "$BUILD_DIR/control-$ARCH.tar.gz" "$BUILD_DIR/debian-binary"
+    rm -rf "$BUILD_DIR/data.tar.gz" "$BUILD_DIR/control.tar.gz" "$BUILD_DIR/debian-binary"
     rm -rf "$PACKAGE_DIR"
 
     echo "Built: $OUTPUT_DIR/$IPK_FILE"
