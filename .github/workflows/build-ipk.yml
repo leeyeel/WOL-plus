@@ -27,13 +27,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libarchive-tools
 
-      - name: Build IPK package
+      - name: Build IPK packages
         run: |
           cd openwrt
           chmod +x build-ipk.sh
           ./build-ipk.sh
 
-      - name: Upload IPK artifact
+      - name: Upload IPK artifacts
         uses: actions/upload-artifact@v4
         with:
           name: luci-app-wolp-ipk
