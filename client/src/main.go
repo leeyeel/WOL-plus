@@ -32,12 +32,6 @@ type Config struct {
 	Password      string `json:"password"`
 }
 
-// 操作类型常量
-const (
-	OperationWake      = 0x01 // 唤醒操作（忽略，因为设备已开机）
-	OperationShutdown  = 0x02 // 关机操作
-)
-
 var (
 	config         Config
 	configFilePath string
@@ -207,20 +201,18 @@ func startPacketCapture(ctx context.Context, devName string) {
 				return
 			}
 			data := packet.Data()
-			if operation := isWOLFrame(data); operation > 0 {
-				if operation == OperationWake {
-					log.Println("Received WOL Wake packet (ignoring, device already awake)")
-				} else if operation == OperationShutdown {
-					log.Println("Received WOL Shutdown packet!")
-					initiateShutdown()
-				}
+
+			if isWOLFrame(data) {
+				log.Println("Received valid WOL packet, initiating shutdown!")
+				initiateShutdown()
 			}
 		}
 	}
 }
 
-// isWOLFrame 检查是否为 WOL Magic Packet，返回操作类型（0=无效, 1=唤醒, 2=关机）
-func isWOLFrame(data []byte) int {
+// isWOLFrame 检查是否为有效的 WOL Magic Packet
+func isWOLFrame(data []byte) bool {
+	// 比较两个字节数组是否相等
 	equal := func(a, b []byte) bool {
 		if len(a) != len(b) {
 			return false
@@ -233,48 +225,51 @@ func isWOLFrame(data []byte) int {
 		return true
 	}
 
+	// 数据包小于102字节则无效
 	if len(data) < 102 {
-		return 0
+		return false
 	}
+
+	// 解码并检查 MAC 地址
 	mac, err := hex.DecodeString(strings.ReplaceAll(config.MacAddress, ":", ""))
 	if err != nil {
 		log.Printf("Invalid MAC address: %v", err)
-		return 0
+		return false
 	}
 
+	// 检查以太网类型是否为 IPX/SPX（0x08 0x42）
 	ethernetType := data[12:14]
 	if !(ethernetType[0] == 0x08 && ethernetType[1] == 0x42) {
-		return 0
+		return false
 	}
 
+	// 检查同步字节部分是否是 0xFF
 	if !equal(data[14:20], []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}) {
-		return 0
+		return false
 	}
 
+	// 检查目标 MAC 地址是否匹配
 	for i := 20; i < 102; i += 6 {
 		if !equal(data[i:i+6], mac) {
-			return 0
+			return false
 		}
 	}
 
-	extraData := data[116:122]
-
+	// 如果配置了附加数据，检查是否匹配
 	if config.ExtraData != "" {
+		extraData := data[116:122]
 		extraDataConfig, err := hex.DecodeString(strings.ReplaceAll(config.ExtraData, ":", ""))
 		if err != nil || len(extraDataConfig) != 6 {
-			log.Printf("Invalid Extra Data: %v", err)
-			return 0
+			log.Printf("Invalid Extra Data format (expected 6 bytes): %s", config.ExtraData)
+			return false
 		}
-		// 检查前 5 个字节是否匹配，第 6 个字节作为操作类型
-		if !equal(extraData[:5], extraDataConfig[:5]) {
-			return 0
+		// 检查附加数据是否匹配
+		if !equal(extraData, extraDataConfig) {
+			return false
 		}
-		// 返回操作类型（第 6 个字节）
-		return int(extraData[5])
 	}
 
-	// 如果没有配置附加数据，默认为关机操作（向后兼容）
-	return OperationShutdown
+	return true
 }
 
 func initiateShutdown() {
@@ -354,7 +349,8 @@ func getRemainingTime(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, int(remaining.Seconds())) // 返回剩余秒数
 }
 
-// basicAuthMiddleware Basic Auth 认证中间件
+// basicAuthMiddleware Basic Auth 认证中间件 - 仅保护 index.html
+// 登录页面本身不保护，登录后的操作通过 API 认证保护
 func basicAuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 跳过 API 路径的认证检查（在具体处理函数中处理）
@@ -362,25 +358,22 @@ func basicAuthMiddleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		// 静态文件需要认证
-		username, password, ok := r.BasicAuth()
-		if !ok || username != config.Username || password != config.Password {
-			w.Header().Set("WWW-Authenticate", `Basic realm="WOL Plus"`)
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		// 静态资源（CSS, JS）不需要认证
+		if strings.HasSuffix(r.URL.Path, ".css") ||
+		   strings.HasSuffix(r.URL.Path, ".js") ||
+		   strings.HasSuffix(r.URL.Path, ".svg") ||
+		   strings.HasSuffix(r.URL.Path, ".ico") {
+			next.ServeHTTP(w, r)
 			return
 		}
+		// index.html 不做认证保护（允许显示登录表单）
 		next.ServeHTTP(w, r)
 	})
 }
 
-// apiAuthMiddleware API 认证中间件（仅对写操作需要认证）
+// apiAuthMiddleware API 认证中间件（所有请求都需要认证）
 func apiAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// GET 请求不需要认证
-		if r.Method == http.MethodGet {
-			next(w, r)
-			return
-		}
 		username, password, ok := r.BasicAuth()
 		if !ok || username != config.Username || password != config.Password {
 			w.Header().Set("WWW-Authenticate", `Basic realm="WOL Plus API"`)
@@ -440,27 +433,33 @@ func main() {
 
 	// 3.1 为 API 配置路由（使用认证中间件）
 	api := r.PathPrefix("/api").Subrouter()
-	api.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
-		// GET 请求返回配置（隐藏密码）
-		if r.Method == http.MethodGet {
-			safeConfig := struct {
-				MacAddress    string `json:"mac_address"`
-				Interface     string `json:"interface"`
-				ExtraData     string `json:"extra_data"`
-				ShutdownDelay string `json:"shutdown_delay"`
-			}{
-				MacAddress:    config.MacAddress,
-				Interface:     config.Interface,
-				ExtraData:     config.ExtraData,
-				ShutdownDelay: config.ShutdownDelay,
-			}
-			json.NewEncoder(w).Encode(safeConfig)
-			return
+
+	// GET /api/config 需要认证（登录验证）
+	api.HandleFunc("/config", apiAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		safeConfig := struct {
+			MacAddress    string `json:"mac_address"`
+			Interface     string `json:"interface"`
+			ExtraData     string `json:"extra_data"`
+			ShutdownDelay string `json:"shutdown_delay"`
+			Username      string `json:"username"`
+		}{
+			MacAddress:    config.MacAddress,
+			Interface:     config.Interface,
+			ExtraData:     config.ExtraData,
+			ShutdownDelay: config.ShutdownDelay,
+			Username:      config.Username,
 		}
-		handleConfigUpdate(w, r)
-	}).Methods("GET", "POST")
-	api.HandleFunc("/cancel", apiAuthMiddleware(cancelShutdownTimer))
-	api.HandleFunc("/remaining", getRemainingTime)
+		json.NewEncoder(w).Encode(safeConfig)
+	})).Methods("GET")
+
+	// POST /api/config 需要认证（更新配置）
+	api.HandleFunc("/config", apiAuthMiddleware(handleConfigUpdate)).Methods("POST")
+
+	// POST /api/cancel 需要认证（取消关机）
+	api.HandleFunc("/cancel", apiAuthMiddleware(cancelShutdownTimer)).Methods("POST")
+
+	// GET /api/remaining 不需要认证（剩余时间）
+	api.HandleFunc("/remaining", getRemainingTime).Methods("GET")
 
 	// 3.2 静态文件（使用认证中间件）
 	r.PathPrefix("/").Handler(basicAuthMiddleware(http.FileServer(http.Dir(webuiPath))))

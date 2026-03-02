@@ -46,6 +46,7 @@ const API = {
      */
     cancelShutdown(authHeader) {
         return fetch('/api/cancel', {
+            method: 'POST',
             headers: { 'Authorization': authHeader }
         });
     }

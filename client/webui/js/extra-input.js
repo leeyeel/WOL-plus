@@ -6,9 +6,9 @@
 const ExtraInput = {
     // 配置
     config: {
-        bytes: 5,              // 5 字节
+        bytes: 6,              // 6 字节
         separator: ':',        // 分隔符
-        pattern: /^([0-9A-Fa-f]{2}:){4}[0-9A-Fa-f]{2}$/,  // XX:XX:XX:XX:XX
+        pattern: /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/,  // XX:XX:XX:XX:XX:XX
         hexPattern: /^[0-9A-Fa-f:]*$/
     },
 
@@ -70,7 +70,7 @@ const ExtraInput = {
         value = this.formatValue(value);
 
         // 限制最大长度
-        const maxLength = this.config.bytes * 3 - 1; // 5*3-1 = 14 (XX:XX:XX:XX:XX)
+        const maxLength = this.config.bytes * 3 - 1; // 6*3-1 = 17 (XX:XX:XX:XX:XX:XX)
         if (value.length > maxLength) {
             value = value.substring(0, maxLength);
         }
@@ -181,5 +181,5 @@ const ExtraInput = {
 
 // 全局函数（用于 HTML onclick 绑定）
 function setExampleExtra() {
-    ExtraInput.setValue('1234:5678:9ABC');
+    ExtraInput.setValue('12:34:56:78:9A:BC');
 }

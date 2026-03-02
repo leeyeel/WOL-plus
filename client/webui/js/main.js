@@ -13,11 +13,30 @@ const App = {
 
         this.bindEvents();
 
-        // 如果已登录，直接显示配置页面
+        // 如果有缓存的认证信息，验证是否仍然有效
         if (Session.isLoggedIn()) {
-            UI.showConfigView();
-            await Config.load();
-            Countdown.start();
+            const isValid = await this.verifySession();
+            if (isValid) {
+                UI.showConfigView();
+                await Config.load();
+                Countdown.start();
+            } else {
+                // 认证失效，清除缓存并显示登录页
+                Session.clear();
+            }
+        }
+    },
+
+    /**
+     * 验证缓存的会话是否仍然有效
+     */
+    async verifySession() {
+        try {
+            const authHeader = Session.getAuthHeader();
+            const response = await API.getConfig(authHeader);
+            return response.ok;
+        } catch (error) {
+            return false;
         }
     },
 
