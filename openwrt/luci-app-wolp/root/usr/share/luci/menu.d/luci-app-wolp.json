@@ -1,0 +1,13 @@
+{
+	"admin/services/wol-plus": {
+		"title": "Wake on LAN Plus",
+		"order": 90,
+		"action": {
+			"type": "view",
+			"path": "wolp"
+		},
+		"depends": {
+			"acl": [ "luci-app-wolp" ]
+		}
+	}
+}
