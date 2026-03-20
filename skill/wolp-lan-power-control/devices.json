@@ -1,0 +1,8 @@
+{
+  "defaults": {
+    "interface": "br-lan",
+    "port": 9,
+    "extra_data": "FF:FF:FF:FF:FF:FF"
+  },
+  "devices": {}
+}
