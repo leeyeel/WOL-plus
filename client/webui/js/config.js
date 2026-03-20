@@ -3,15 +3,18 @@
  */
 
 const Config = {
+    defaultExtraData: 'FF:FF:FF:FF:FF:FF',
+
     /**
      * 从 DOM 读取配置数据
      * @returns {Object} 配置对象
      */
     readFromDOM() {
+        const extraData = ExtraInput.getValue().trim() || this.defaultExtraData;
+
         return {
             mac_address: document.getElementById('mac').value.trim(),
-            extra_data: document.getElementById('extra').value.trim(),
-            udp_port: document.getElementById('udpPort').value.trim(),
+            extra_data: extraData,
             shutdown_delay: document.getElementById('shutdownTime').value.trim()
         };
     },
@@ -23,8 +26,12 @@ const Config = {
     readSettingsFromDOM() {
         const username = document.getElementById('usernameInput').value.trim();
         const newPassword = document.getElementById('newPassword').value;
+        const udpPort = document.getElementById('udpPort').value.trim();
 
-        const payload = { username };
+        const payload = {
+            username,
+            udp_port: udpPort || '9'
+        };
 
         if (newPassword) {
             payload.password = newPassword;
@@ -43,7 +50,7 @@ const Config = {
         if (data.extra_data) {
             ExtraInput.setValue(data.extra_data);
         } else {
-            ExtraInput.setValue('FF:FF:FF:FF:FF:FF');
+            ExtraInput.setValue(this.defaultExtraData);
         }
         document.getElementById('udpPort').value = data.udp_port || '9';
         document.getElementById('shutdownTime').value = data.shutdown_delay || '60';

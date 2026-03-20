@@ -96,6 +96,9 @@ const App = {
      */
     async handleSaveSettings() {
         const result = await Config.saveSettings();
+        if (result.success && !result.needRelogin) {
+            await Config.load();
+        }
         UI.showSettingsMessage(result.message, result.success ? 'success' : 'error');
 
         if (result.needRelogin) {

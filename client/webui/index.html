@@ -120,7 +120,7 @@
                         </span>
                     </div>
                     <div class="field-hint">
-                        <span class="hint-text">格式：XX:XX:XX:XX:XX:XX（6字节十六进制）</span>
+                        <span class="hint-text">格式：XX:XX:XX:XX:XX:XX（6字节十六进制），留空默认 FF:FF:FF:FF:FF:FF</span>
                         <span class="hint-example" onclick="setExampleExtra()">填入示例</span>
                     </div>
                 </div>
@@ -138,19 +138,6 @@
                     <input type="text" id="networkInterface" disabled>
                 </div>
 
-                <div class="form-group">
-                    <label for="udpPort">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M22 12H2"></path>
-                            <path d="M5 12l4-4"></path>
-                            <path d="M5 12l4 4"></path>
-                            <path d="M19 12l-4-4"></path>
-                            <path d="M19 12l-4 4"></path>
-                        </svg>
-                        关机UDP端口
-                    </label>
-                    <input type="number" id="udpPort" min="1" max="65535" placeholder="9">
-                </div>
             </section>
 
             <!-- 操作按钮 -->
@@ -185,11 +172,26 @@
                         <polyline points="12 19 5 12 12 5"></polyline>
                     </svg>
                 </button>
-                <h2 style="margin: 0;">安全设置</h2>
+                <h2 style="margin: 0;">系统设置</h2>
                 <div style="width: 38px;"></div>
             </header>
 
             <section class="network-section">
+                <div class="form-group">
+                    <label for="udpPort">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 12H2"></path>
+                            <path d="M5 12l4-4"></path>
+                            <path d="M5 12l4 4"></path>
+                            <path d="M19 12l-4-4"></path>
+                            <path d="M19 12l-4 4"></path>
+                        </svg>
+                        关机UDP端口
+                    </label>
+                    <input type="number" id="udpPort" min="1" max="65535" placeholder="9">
+                    <small style="color: rgba(255,255,255,0.72);">需与 OpenWrt 发送端的关机 UDP 端口保持一致，默认 `9`</small>
+                </div>
+
                 <div class="form-group">
                     <label for="usernameInput">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -199,6 +201,7 @@
                         用户名
                     </label>
                     <input type="text" id="usernameInput">
+                    <small style="color: rgba(255,255,255,0.72);">用于登录当前客户端 Web 管理页面</small>
                 </div>
 
                 <div class="form-group">
@@ -210,7 +213,7 @@
                         新密码
                     </label>
                     <input type="password" id="newPassword" placeholder="留空则不修改">
-                    <small style="color: #f5576c;">修改密码后需要重新登录</small>
+                    <small style="color: #f5576c;">修改密码后需要重新登录，OpenWrt 发送端配置不受影响</small>
                 </div>
 
                 <div class="button-group">
