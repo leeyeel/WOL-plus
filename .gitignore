@@ -1,14 +1,11 @@
 build
-Output
 .vscode
 .cache
-wolp
 *.exe
 *.log
 *.ipk
 *.deb
 wolp-test
 ipk-build/
-*.MD
 client/src/backend
 __pycache__

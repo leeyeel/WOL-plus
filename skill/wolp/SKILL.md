@@ -1,9 +1,9 @@
 ---
-name: wolp-lan-power-control
+name: wolp
 description: Wake or shut down LAN devices by sending WOL-plus packets from the agent host. Use this when the user wants to power on a device with a raw Ethernet magic packet, or power off a device with a UDP magic packet, and they can provide the target MAC address plus the network interface or target IPv4 address.
 ---
 
-# WOLP LAN Power Control
+# wolp
 
 Use this skill when the user wants the agent to control a device on the local network.
 
@@ -46,7 +46,7 @@ python3 -m pip install wakeonlan
 
 Device inventory:
 
-- Store reusable devices in `skill/wolp-lan-power-control/assets/devices.json`.
+- Store reusable devices in `skill/wolp/assets/devices.json`.
 - Successful non-dry-run `wake` and `shutdown` commands automatically write the resolved device info back to `assets/devices.json`.
 - If `--device <name>` is provided, that entry is updated in place; otherwise the script reuses an existing entry with the same MAC or creates a new `device-<mac>` entry.
 - Repeated operations on the same device keep refreshing that device's stored fields and the latest success metadata.
@@ -83,19 +83,19 @@ Device inventory:
 Preferred commands:
 
 ```bash
-python3 skill/wolp-lan-power-control/scripts/wolp_power.py list
-python3 skill/wolp-lan-power-control/scripts/wolp_power.py wake --device nas
-python3 skill/wolp-lan-power-control/scripts/wolp_power.py shutdown --device nas
-python3 skill/wolp-lan-power-control/scripts/wolp_power.py wake --mac AA:BB:CC:DD:EE:FF
-python3 skill/wolp-lan-power-control/scripts/wolp_power.py wake --mac AA:BB:CC:DD:EE:FF --broadcast-ip 192.168.1.255 --port 9
-python3 skill/wolp-lan-power-control/scripts/wolp_power.py shutdown --host 192.168.1.50 --mac AA:BB:CC:DD:EE:FF --extra-data FF:FF:FF:FF:FF:FF --port 9
+python3 skill/wolp/scripts/wolp_power.py list
+python3 skill/wolp/scripts/wolp_power.py wake --device nas
+python3 skill/wolp/scripts/wolp_power.py shutdown --device nas
+python3 skill/wolp/scripts/wolp_power.py wake --mac AA:BB:CC:DD:EE:FF
+python3 skill/wolp/scripts/wolp_power.py wake --mac AA:BB:CC:DD:EE:FF --broadcast-ip 192.168.1.255 --port 9
+python3 skill/wolp/scripts/wolp_power.py shutdown --host 192.168.1.50 --mac AA:BB:CC:DD:EE:FF --extra-data FF:FF:FF:FF:FF:FF --port 9
 ```
 
 For safe previews or debugging, use `--dry-run` first:
 
 ```bash
-python3 skill/wolp-lan-power-control/scripts/wolp_power.py wake --device nas --dry-run
-python3 skill/wolp-lan-power-control/scripts/wolp_power.py shutdown --device nas --dry-run
+python3 skill/wolp/scripts/wolp_power.py wake --device nas --dry-run
+python3 skill/wolp/scripts/wolp_power.py shutdown --device nas --dry-run
 ```
 
 Client install and config:

@@ -219,7 +219,7 @@ Client 端重点配置项：
 
 仓库内提供了一个 skill：
 
-- `skill/wolp-lan-power-control`
+- `skill/wolp`
 
 目前该 skill 已上架 OpenClaw，其他 agent 可通过手动拷贝目录的方式安装。
 
@@ -236,7 +236,7 @@ npx clawhub@latest install wolp
 当前 Claude Code 暂未提供商店安装入口，可直接将仓库中的 skill 目录拷贝到 Claude Code 的 `skills` 目录中：
 
 ```bash
-cp -r skill/wolp-lan-power-control <your-claude-skills-dir>/
+cp -r skill/wolp <your-claude-skills-dir>/
 ```
 
 拷贝完成后，重新加载或重启 Claude Code 即可。
@@ -246,7 +246,7 @@ cp -r skill/wolp-lan-power-control <your-claude-skills-dir>/
 当前 Codex CLI 也需要手动安装，可将同一个 skill 目录拷贝到 Codex CLI 的 `skills` 目录中：
 
 ```bash
-cp -r skill/wolp-lan-power-control <your-codex-skills-dir>/
+cp -r skill/wolp <your-codex-skills-dir>/
 ```
 
 拷贝完成后，重新启动 Codex CLI 即可生效。
