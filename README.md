@@ -13,7 +13,8 @@
 - **倒计时关机**: 支持配置关机倒计时时长，可取消正在进行的关机任务
 - **多平台支持**:
   - OpenWrt 路由器端（发送端，x86_64、aarch64）
-  - Windows 桌面端（接收端 + WebUI）
+  - Windows 桌面端（接收端 + WebUI，amd64、arm64）
+  - Debian/Ubuntu Linux 端（接收端 + WebUI，amd64、arm64）
 
 ## 界面预览
 
@@ -74,11 +75,26 @@ scp openwrt/wol.zh-cn.lmo root@<openwrt-ip>:/usr/lib/lua/luci/i18n/
 
 ### Windows 端安装（接收端 + WebUI）
 
-从 [Releases](https://github.com/leeyeel/WOL-plus/releases) 下载安装包（如 `installer_windows_inno_x64_v0.0.5.exe`）：
+从 [Releases](https://github.com/leeyeel/WOL-plus/releases) 下载安装包（如 `installer_windows_amd64_v0.0.5.exe`）：
 
 1. 下载后直接运行安装程序
 2. 安装完成后服务会自动启动
 3. 访问 `http://<本机-ip>:2025` 进行配置
+
+### Debian/Ubuntu 安装（接收端 + WebUI）
+
+从 [Releases](https://github.com/leeyeel/WOL-plus/releases) 下载对应架构的 `.deb` 包（如 `wolp-client_0.0.5_amd64.deb`）：
+
+```bash
+sudo dpkg -i wolp-client_0.0.5_amd64.deb
+sudo systemctl status wolp.service
+```
+
+安装后：
+
+1. 配置文件位于 `/etc/wolp/wolp.json`
+2. Web UI 位于 `/usr/share/wolp/webui`
+3. 服务监听 `http://<linux-ip>:2025`
 
 ### 使用说明
 
@@ -97,8 +113,9 @@ scp openwrt/wol.zh-cn.lmo root@<openwrt-ip>:/usr/lib/lua/luci/i18n/
 1. 访问 `http://<windows-ip>:2025`
 2. 使用默认凭据登录
 3. 配置附加数据（需与 OpenWrt 端配置一致）
-4. 配置关机倒计时时长
-5. 可取消正在进行的关机任务
+4. 如有需要，修改关机 UDP 端口（默认 `9`）
+5. 配置关机倒计时时长
+6. 可取消正在进行的关机任务
 
 ## 工作原理
 
@@ -110,7 +127,7 @@ scp openwrt/wol.zh-cn.lmo root@<openwrt-ip>:/usr/lib/lua/luci/i18n/
 └─────────────────┘                                 └─────────────────┘
 ```
 
-当 Windows 端接收到带有匹配附加数据的 WOL Magic Packet 时，触发倒计时关机。
+当接收端接收到带有匹配附加数据的 UDP Magic Packet 时，触发倒计时关机。
 
 ## 开发指南
 
@@ -140,19 +157,34 @@ VERSION=0.0.5 ./build-ipk.sh
 在 Windows 环境下执行：
 
 ```powershell
-# 编译
-.\build.ps1
+# 编译 amd64
+.\scripts\build.ps1 -Arch amd64 -Version 0.0.5
 
 # 打包（需要安装 Inno Setup）
-# 默认版本 1.0.0
-iscc .\install\windows_x86_64.iss
-# 指定版本号
-iscc /DVERSION=0.0.5 .\install\windows_x86_64.iss
+# amd64
+iscc /DVERSION=0.0.5 /DAPP_ARCH=amd64 .\scripts\windows_x86_64.iss
+
+# arm64
+.\scripts\build.ps1 -Arch arm64 -Version 0.0.5
+iscc /DVERSION=0.0.5 /DAPP_ARCH=arm64 .\scripts\windows_x86_64.iss
 ```
 
-生成的安装包位于 `install\Output\` 目录（文件名包含版本号）：
-- `installer_windows_inno_x64_v1.0.0.exe`
-- 或 `installer_windows_inno_x64_v0.0.5.exe`（如果指定了版本）
+生成的安装包位于 `scripts\Output\` 目录（文件名包含版本号）：
+- `installer_windows_amd64_v0.0.5.exe`
+- `installer_windows_arm64_v0.0.5.exe`
+
+### 构建 Debian 包（接收端）
+
+在 Linux 环境下执行：
+
+```bash
+bash scripts/build-deb.sh amd64 0.0.5
+bash scripts/build-deb.sh arm64 0.0.5
+```
+
+生成的 Debian 包位于 `release/client/` 目录：
+- `wolp-client_0.0.5_amd64.deb`
+- `wolp-client_0.0.5_arm64.deb`
 
 ### GitHub Actions 自动构建
 
@@ -160,8 +192,10 @@ iscc /DVERSION=0.0.5 .\install\windows_x86_64.iss
 
 - **IPK 包**: 推送到 main 分支或创建 tag 时自动构建
   - Tag `v0.0.5` → `luci-app-wolp_0.0.5_x86_64.ipk`、`luci-app-wolp_0.0.5_aarch64.ipk`
-- **Windows 安装包**: 创建 tag 时自动构建
-  - Tag `v0.0.5` → `installer_windows_inno_x64_v0.0.5.exe`
+- **Windows 安装包**: 推送到 main、PR 或创建 tag 时自动构建
+  - Tag `v0.0.5` → `installer_windows_amd64_v0.0.5.exe`、`installer_windows_arm64_v0.0.5.exe`
+- **Debian 包**: 推送到 main、PR 或创建 tag 时自动构建
+  - Tag `v0.0.5` → `wolp-client_0.0.5_amd64.deb`、`wolp-client_0.0.5_arm64.deb`
 
 ## 许可证
 

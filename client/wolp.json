@@ -1,7 +1,8 @@
 {
   "mac_address": "c8:7f:54:9e:60:b2",
   "interface": "eno1",
-  "extra_data": "AA:BB:CC:DD:EE",
+  "extra_data": "FF:FF:FF:FF:FF:FF",
+  "udp_port": "9",
   "shutdown_delay": "60",
   "username": "admin",
   "password": "admin123"

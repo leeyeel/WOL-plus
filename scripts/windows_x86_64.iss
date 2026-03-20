@@ -2,30 +2,47 @@
 ; 可通过命令行参数传入版本号: ISCC.exe /DVERSION=0.0.5 windows_x86_64.iss
 
 #ifndef VERSION
-  #define VERSION "1.0.0"
+  #define VERSION "dev"
+#endif
+
+#ifndef APP_ARCH
+  #define APP_ARCH "amd64"
+#endif
+
+#ifndef BUILD_ROOT
+  #define BUILD_ROOT AddBackslash(SourcePath) + "..\build\windows\" + APP_ARCH
 #endif
 
 #define MyAppName "wolp"
 #define MyAppExeName "wolp-service.exe"
+#define MyBinaryPath BUILD_ROOT + "\wolp.exe"
+#define MyServiceWrapperPath BUILD_ROOT + "\wolp-service.exe"
 
 [Setup]
 AppName={#MyAppName}
 AppVersion={#VERSION}
 AppPublisher=leo
 AppPublisherURL=https://github.com/leeyeel/WOL-plus
-OutputBaseFilename=installer_windows_inno_x64_v{#VERSION}
+OutputBaseFilename=installer_windows_{#APP_ARCH}_v{#VERSION}
 DefaultDirName={commonpf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 PrivilegesRequired=admin
-ArchitecturesInstallIn64BitMode=x64compatible
 SetupIconFile="{#SourcePath}\icon.ico"
 
+#if APP_ARCH == "arm64"
+ArchitecturesAllowed=arm64
+ArchitecturesInstallIn64BitMode=arm64
+#else
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
+#endif
+
 [Files]
-Source: "{#SourcePath}\..\build\wolp.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#MyBinaryPath}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourcePath}\..\client\webui\*"; DestDir: "{app}\webui"; Flags: recursesubdirs createallsubdirs ignoreversion
 Source: "{#SourcePath}\icon.ico"; DestDir: "{app}"; Flags: onlyifdoesntexist
 Source: "{#SourcePath}\wolp-service.xml"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#SourcePath}\wolp-service.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#MyServiceWrapperPath}"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\wolp"; Filename: "{app}\wolp.exe"; IconFilename: "{app}\icon.ico"
@@ -41,7 +58,7 @@ Filename: "{app}\{#MyAppExeName}"; Parameters: "uninstall";Flags: runhidden; Run
 [UninstallDelete]
 Type: files; Name: "{app}\wolp-service.log"
 Type: files; Name: "{app}\wolp-service.err.log"
-Type: files; Name: "{app}\winsw.exe"
+Type: files; Name: "{app}\wolp-service.exe"
 Type: files; Name: "{app}\wolp-service.xml"
 Type: files; Name: "{app}\wolp.exe"
 Type: dirifempty; Name: "{app}"

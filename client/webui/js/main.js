@@ -75,6 +75,9 @@ const App = {
      */
     async handleSaveConfig() {
         const result = await Config.save();
+        if (result.success) {
+            await Config.load();
+        }
         UI.showMessage(result.message, result.success ? 'success' : 'error');
     },
 

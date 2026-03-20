@@ -6,7 +6,9 @@ wolp
 *.exe
 *.log
 *.ipk
+*.deb
 wolp-test
 ipk-build/
 po2lmo
 *.MD
+client/src/backend

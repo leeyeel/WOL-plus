@@ -11,6 +11,7 @@ const Config = {
         return {
             mac_address: document.getElementById('mac').value.trim(),
             extra_data: document.getElementById('extra').value.trim(),
+            udp_port: document.getElementById('udpPort').value.trim(),
             shutdown_delay: document.getElementById('shutdownTime').value.trim()
         };
     },
@@ -42,8 +43,9 @@ const Config = {
         if (data.extra_data) {
             ExtraInput.setValue(data.extra_data);
         } else {
-            ExtraInput.clear();
+            ExtraInput.setValue('FF:FF:FF:FF:FF:FF');
         }
+        document.getElementById('udpPort').value = data.udp_port || '9';
         document.getElementById('shutdownTime').value = data.shutdown_delay || '60';
         document.getElementById('usernameInput').value = data.username || 'admin';
         document.getElementById('networkInterface').value = data.interface || '';
