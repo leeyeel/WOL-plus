@@ -28,7 +28,7 @@ Wake On LAN Plus 由两部分组成：
 
 ### OpenWrt 端
 
-![Wake On LAN+](openwrt/wolp.png)
+![Wake On LAN+](openwrt/openwrt.jpg)
 
 ### Client 端 Web UI
 
