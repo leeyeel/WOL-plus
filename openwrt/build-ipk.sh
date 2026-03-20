@@ -42,8 +42,9 @@ echo "=========================================="
 # 清理并创建输出目录
 # ==============================================================================
 
-rm -rf "$OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR"
+rm -f "$OUTPUT_DIR/${PACKAGE_NAME}_"*.ipk
+rm -f "$OUTPUT_DIR/${I18N_PACKAGE_NAME}_"*.ipk
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
 

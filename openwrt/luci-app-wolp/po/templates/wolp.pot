@@ -41,7 +41,7 @@ msgstr ""
 msgid "Additional Data"
 msgstr ""
 
-msgid "Enter 6-byte custom data (XX:XX:XX:XX:XX:XX). If not specified for shutdown, defaults to FF:FF:FF:FF:FF:FF."
+msgid "Enter 6-byte custom data (XX:XX:XX:XX:XX:XX).<br />If not specified for shutdown, defaults to FF:FF:FF:FF:FF:FF."
 msgstr ""
 
 # Form fields - Broadcast

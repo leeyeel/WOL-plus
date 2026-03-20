@@ -92,7 +92,22 @@ sudo systemctl status wolp.service
 
 安装后：
 
-1. 配置文件位于 `/etc/wolp/wolp.json`
+1. 配置文件位于 `/usr/local/etc/wolp/wolp.json`
+2. Web UI 位于 `/usr/share/wolp/webui`
+3. 服务监听 `http://<linux-ip>:2025`
+
+### RPM 系发行版安装（接收端 + WebUI）
+
+从 [Releases](https://github.com/leeyeel/WOL-plus/releases) 下载对应架构的 `.rpm` 包（如 `wolp-client-0.0.5-1.x86_64.rpm`）：
+
+```bash
+sudo rpm -ivh wolp-client-0.0.5-1.x86_64.rpm
+sudo systemctl status wolp.service
+```
+
+安装后：
+
+1. 配置文件位于 `/usr/local/etc/wolp/wolp.json`
 2. Web UI 位于 `/usr/share/wolp/webui`
 3. 服务监听 `http://<linux-ip>:2025`
 
@@ -164,14 +179,10 @@ VERSION=0.0.5 ./build-ipk.sh
 # amd64
 iscc /DVERSION=0.0.5 /DAPP_ARCH=amd64 .\scripts\windows_x86_64.iss
 
-# arm64
-.\scripts\build.ps1 -Arch arm64 -Version 0.0.5
-iscc /DVERSION=0.0.5 /DAPP_ARCH=arm64 .\scripts\windows_x86_64.iss
 ```
 
 生成的安装包位于 `scripts\Output\` 目录（文件名包含版本号）：
 - `installer_windows_amd64_v0.0.5.exe`
-- `installer_windows_arm64_v0.0.5.exe`
 
 ### 构建 Debian 包（接收端）
 
@@ -186,6 +197,19 @@ bash scripts/build-deb.sh arm64 0.0.5
 - `wolp-client_0.0.5_amd64.deb`
 - `wolp-client_0.0.5_arm64.deb`
 
+### 构建 RPM 包（接收端）
+
+在 Linux 环境下执行：
+
+```bash
+bash scripts/build-rpm.sh amd64 0.0.5
+bash scripts/build-rpm.sh arm64 0.0.5
+```
+
+生成的 RPM 包位于 `release/client/` 目录：
+- `wolp-client-0.0.5-1.x86_64.rpm`
+- `wolp-client-0.0.5-1.aarch64.rpm`
+
 ### GitHub Actions 自动构建
 
 项目配置了 CI/CD 自动构建，构建产物文件名包含 tag 版本号：
@@ -193,9 +217,11 @@ bash scripts/build-deb.sh arm64 0.0.5
 - **IPK 包**: 推送到 main 分支或创建 tag 时自动构建
   - Tag `v0.0.5` → `luci-app-wolp_0.0.5_x86_64.ipk`、`luci-app-wolp_0.0.5_aarch64.ipk`
 - **Windows 安装包**: 推送到 main、PR 或创建 tag 时自动构建
-  - Tag `v0.0.5` → `installer_windows_amd64_v0.0.5.exe`、`installer_windows_arm64_v0.0.5.exe`
+  - Tag `v0.0.5` → `installer_windows_amd64_v0.0.5.exe`
 - **Debian 包**: 推送到 main、PR 或创建 tag 时自动构建
   - Tag `v0.0.5` → `wolp-client_0.0.5_amd64.deb`、`wolp-client_0.0.5_arm64.deb`
+- **RPM 包**: 推送到 main、PR 或创建 tag 时自动构建
+  - Tag `v0.0.5` → `wolp-client-0.0.5-1.x86_64.rpm`、`wolp-client-0.0.5-1.aarch64.rpm`
 
 ## 许可证
 

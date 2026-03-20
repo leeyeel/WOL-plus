@@ -117,7 +117,7 @@ return view.extend({
 
 		// 附加数据（仅关机时显示）
 		o = s.option(form.Value, 'extra_data', _('Additional Data'),
-			_('Enter 6-byte custom data (XX:XX:XX:XX:XX:XX). If not specified for shutdown, defaults to FF:FF:FF:FF:FF:FF.'));
+			_('Enter 6-byte custom data (XX:XX:XX:XX:XX:XX).<br />If not specified for shutdown, defaults to FF:FF:FF:FF:FF:FF.'));
 		o.placeholder = 'AA:BB:CC:DD:EE:FF';
 		o.default = 'FF:FF:FF:FF:FF:FF';
 		o.datatype = 'macaddr';
@@ -222,22 +222,13 @@ return view.extend({
 
 				var hexBytes = packet.match(/.{2}/g);
 
-				ui.showModal(_('Shutting down host'), [
-					E('p', { 'class': 'spinning' }, [ _('Checking host reachability…') ])
-				]);
-
 				var cmd = '(printf "' + hexBytes.map(function(b) { return '\\x' + b; }).join('') + '" | /usr/bin/netcat -u -w1 ' + shutdownAddr + ' ' + udpPort + ') >/dev/null 2>&1 &';
 
-				return this.callWolpProbe(shutdownAddr).then(function(res) {
-					if (!res || !res.reachable)
-						throw new Error(_('Device appears offline or unreachable'));
+				ui.showModal(_('Shutting down host'), [
+					E('p', { 'class': 'spinning' }, [ _('Sending shutdown command…') ])
+				]);
 
-					ui.showModal(_('Shutting down host'), [
-						E('p', { 'class': 'spinning' }, [ _('Sending shutdown command…') ])
-					]);
-
-					return this.callWolpExec('/bin/sh', [ '-c', cmd ]);
-				}.bind(this)).then(this.parseExecResult).then(function(res) {
+				return this.callWolpExec('/bin/sh', [ '-c', cmd ]).then(this.parseExecResult).then(function(res) {
 					ui.showModal(_('Shutting down host'), [
 						E('p', [ _('Shutdown request sent') ]),
 						res.stdout ? E('pre', [ res.stdout ]) : '',

@@ -8,7 +8,7 @@ if [[ $# -lt 1 || $# -gt 2 ]]; then
 fi
 
 ARCH="$1"
-VERSION="${2:-dev}"
+VERSION="${2:-0.0.0-dev}"
 
 case "$ARCH" in
     amd64|arm64) ;;
@@ -22,8 +22,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 BUILD_ROOT="$REPO_ROOT/build/deb/$ARCH"
 PKG_ROOT="$BUILD_ROOT/pkg"
-BIN_DIR="$PKG_ROOT/usr/bin"
-ETC_DIR="$PKG_ROOT/etc/wolp"
+BIN_DIR="$PKG_ROOT/usr/local/bin"
+ETC_DIR="$PKG_ROOT/usr/local/etc/wolp"
 WEBUI_DIR="$PKG_ROOT/usr/share/wolp/webui"
 SYSTEMD_DIR="$PKG_ROOT/lib/systemd/system"
 DEBIAN_DIR="$PKG_ROOT/DEBIAN"
@@ -55,7 +55,7 @@ Description: Wake On LAN Plus client
 EOF
 
 cat > "$DEBIAN_DIR/conffiles" <<EOF
-/etc/wolp/wolp.json
+/usr/local/etc/wolp/wolp.json
 EOF
 
 cat > "$DEBIAN_DIR/postinst" <<'EOF'

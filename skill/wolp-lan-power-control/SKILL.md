@@ -123,11 +123,11 @@ sudo systemctl status wolp.service
 ```
 
 - Linux client paths:
-  - config: `/etc/wolp/wolp.json`
+  - config: `/usr/local/etc/wolp/wolp.json`
   - service: `wolp.service`
   - web UI: `/usr/share/wolp/webui`
   - HTTP UI port: `2025`
-- Important config fields in `/etc/wolp/wolp.json`:
+- Important config fields in `/usr/local/etc/wolp/wolp.json`:
   - `mac_address`: the client machine's MAC address to match in shutdown packets
   - `interface`: the client machine's active NIC name
   - `extra_data`: must match the sender's `--extra-data`

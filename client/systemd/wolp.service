@@ -3,11 +3,11 @@ Description=WOL Packet Listener Service
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/wolp
+ExecStart=/usr/local/bin/wolp
 Restart=always
 User=root
-WorkingDirectory=/etc/wolp
-Environment="CONFIG_FILE=/etc/wolp/wolp.json"
+WorkingDirectory=/usr/local/etc/wolp
+Environment="CONFIG_FILE=/usr/local/etc/wolp/wolp.json"
 Environment="WEBUI_DIR=/usr/share/wolp/webui"
 SyslogIdentifier=wolp
 

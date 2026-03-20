@@ -33,10 +33,6 @@ jobs:
   build-windows-installer:
     needs: prepare
     runs-on: windows-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: [amd64, arm64]
 
     steps:
       - name: Checkout code
@@ -52,7 +48,7 @@ jobs:
       - name: Build Windows binaries
         shell: pwsh
         run: |
-          ./scripts/build.ps1 -Arch "${{ matrix.arch }}" -Version "${{ needs.prepare.outputs.version }}"
+          ./scripts/build.ps1 -Arch "amd64" -Version "${{ needs.prepare.outputs.version }}"
 
       - name: Install Inno Setup
         run: |
@@ -61,12 +57,12 @@ jobs:
       - name: Build installer
         shell: cmd
         run: |
-          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DVERSION=${{ needs.prepare.outputs.version }} /DAPP_ARCH=${{ matrix.arch }} scripts\windows_x86_64.iss
+          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DVERSION=${{ needs.prepare.outputs.version }} /DAPP_ARCH=amd64 scripts\windows_x86_64.iss
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: windows-installer-${{ matrix.arch }}
+          name: windows-installer-amd64
           path: scripts/Output/*.exe
 
       - name: Release (on tag)
@@ -110,5 +106,46 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: release/client/*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-rpm-package:
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Install RPM build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm
+
+      - name: Build RPM package
+        run: |
+          chmod +x scripts/build-rpm.sh
+          scripts/build-rpm.sh "${{ matrix.arch }}" "${{ needs.prepare.outputs.version }}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-package-${{ matrix.arch }}
+          path: release/client/*.rpm
+
+      - name: Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release/client/*.rpm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
