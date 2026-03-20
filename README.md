@@ -226,7 +226,7 @@ Client 端重点配置项：
 ### OpenClaw 安装
 
 ```bash
-npx clawhub@latest install wolp-lan-power-control
+npx clawhub@latest install wolp
 ```
 
 安装完成后，OpenClaw 就可以识别并使用该 skill。
