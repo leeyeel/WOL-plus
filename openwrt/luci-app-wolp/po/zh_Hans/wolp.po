@@ -1,0 +1,110 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+# 页面标题和描述
+msgid "Wake on LAN Plus"
+msgstr "网络唤醒+"
+
+msgid "Wake on LAN Plus is a mechanism to boot and shutdown computers remotely in the local network."
+msgstr "网络唤醒+是一个远程启动或关闭本地网络内计算机的机制。"
+
+# 表单字段 - 操作类型
+msgid "Action"
+msgstr "操作"
+
+msgid "Choose whether to wake up or shutdown the host"
+msgstr "选择唤醒或关闭主机"
+
+msgid "Wake up"
+msgstr "唤醒"
+
+msgid "Shutdown"
+msgstr "关机"
+
+# 表单字段 - 网络接口
+msgid "Network interface to use"
+msgstr "使用的网络接口"
+
+msgid "Specifies the interface the WoL packet is sent on"
+msgstr "指定发送网络唤醒数据包的接口"
+
+# 表单字段 - 目标主机
+msgid "Host to wake up or shutdown"
+msgstr "要唤醒或关闭的主机"
+
+msgid "Choose the host to control or enter a custom MAC address to use"
+msgstr "选择要控制的主机，或输入自定义MAC地址"
+
+# 表单字段 - 附加数据
+msgid "Additional Data"
+msgstr "附加数据"
+
+msgid "Enter 6-byte custom data (XX:XX:XX:XX:XX:XX). If not specified for shutdown, defaults to FF:FF:FF:FF:FF:FF."
+msgstr "输入6字节自定义数据（XX:XX:XX:XX:XX:XX）。关机时如未指定，默认为FF:FF:FF:FF:FF:FF。"
+
+# 表单字段 - 广播
+msgid "Send to broadcast address"
+msgstr "发送到广播地址"
+
+# 表单字段 - UDP端口
+msgid "UDP Port for Shutdown"
+msgstr "关机UDP端口"
+
+msgid "UDP port to send shutdown command (default: 9)"
+msgstr "发送关机命令的UDP端口（默认：9）"
+
+# 按钮
+msgid "Execute"
+msgstr "执行"
+
+msgid "Command executed successfully"
+msgstr "命令执行成功"
+
+# 成功提示
+msgid "Waking host"
+msgstr "正在唤醒主机"
+
+msgid "Starting WoL utility…"
+msgstr "正在启动网络唤醒工具…"
+
+msgid "Shutting down host"
+msgstr "正在关闭主机"
+
+msgid "Sending shutdown command…"
+msgstr "正在发送关机命令…"
+
+msgid "Checking host reachability…"
+msgstr "正在检查主机可达性…"
+
+msgid "Shutdown request sent"
+msgstr "关机请求已发送"
+
+msgid "Dismiss"
+msgstr "关闭"
+
+# 错误提示
+msgid "No target host specified!"
+msgstr "未指定目标主机！"
+
+msgid "etherwake is not installed!"
+msgstr "etherwake未安装！"
+
+msgid "netcat is not installed!"
+msgstr "netcat未安装！"
+
+msgid "No IPv4 address available for shutdown target. Ensure the host is online or has a host hint entry."
+msgstr "没有可用于关机目标的IPv4地址。请确保主机在线，或存在对应的主机提示记录。"
+
+msgid "Device appears offline or unreachable"
+msgstr "设备似乎离线或不可达"
+
+msgid "Waking host failed"
+msgstr "唤醒主机失败"
+
+msgid "Shutting down host failed"
+msgstr "关闭主机失败"

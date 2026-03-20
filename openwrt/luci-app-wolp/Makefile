@@ -9,7 +9,7 @@ include $(TOPDIR)/rules.mk
 PKG_LICENSE:=Apache-2.0
 
 LUCI_TITLE:=LuCI Support for Wake-on-LAN Plus
-LUCI_DEPENDS:=+luci-base +etherwake +netcat
+LUCI_DEPENDS:=+luci-base +etherwake +netcat +rpcd-mod-ucode +ucode-mod-fs
 
 PKG_LICENSE:=Apache-2.0
 PKG_MAINTAINER:=Jo-Philipp Wich <jo@mein.io>

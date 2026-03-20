@@ -2,7 +2,6 @@
 'require view';
 'require dom';
 'require uci';
-'require fs';
 'require ui';
 'require rpc';
 'require form';
@@ -17,23 +16,66 @@ return view.extend({
 		expect: { '': {} }
 	}),
 
+	callWolpStat: rpc.declare({
+		object: 'luci.wolp',
+		method: 'stat',
+		expect: { '': {} }
+	}),
+
+	callWolpExec: rpc.declare({
+		object: 'luci.wolp',
+		method: 'exec',
+		params: [ 'name', 'args' ],
+		expect: { '': {} }
+	}),
+
+	callWolpProbe: rpc.declare({
+		object: 'luci.wolp',
+		method: 'probe',
+		params: [ 'host' ],
+		expect: { '': {} }
+	}),
+
+	parseExecResult: function(res) {
+		if (res && !res.code)
+			return res;
+
+		throw new Error((res && (res.stderr || res.stdout)) || ('exit code ' + ((res && res.code) || 1)));
+	},
+
+	resolveShutdownAddress: function(mac) {
+		var host = this.hosts && this.hosts[mac],
+			addrs = host ? L.toArray(host.ipaddrs || host.ipv4) : [],
+			addr;
+
+		for (var i = 0; i < addrs.length; i++) {
+			addr = addrs[i];
+
+			if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(addr))
+				return addr;
+		}
+
+		return null;
+	},
+
 	load: function() {
 		return Promise.all([
-			L.resolveDefault(fs.stat('/usr/bin/etherwake')),
-			L.resolveDefault(fs.stat('/usr/bin/nc')),
+			L.resolveDefault(this.callWolpStat(), {}),
 			this.callHostHints(),
 			uci.load('luci-wolp')
 		]);
 	},
 
 	render: function(data) {
-		var has_ewk = data[0],
-			has_nc = data[1],
-			hosts = data[2],
+		var stat = data[0] || {},
+			has_ewk = !!stat.etherwake,
+			has_nc = !!stat.netcat,
+			hosts = data[1],
 			m, s, o;
 
 		this.formdata.has_ewk = has_ewk;
 		this.formdata.has_nc = has_nc;
+		this.hosts = hosts;
 
 		m = new form.JSONMap(this.formdata, _('Wake on LAN Plus'),
 			_('Wake on LAN Plus is a mechanism to boot and shutdown computers remotely in the local network.'));
@@ -73,15 +115,16 @@ return view.extend({
 			]), ')' ]));
 		});
 
-		// 附加数据（用于关机验证）
+		// 附加数据（仅关机时显示）
 		o = s.option(form.Value, 'extra_data', _('Additional Data'),
-			_('Enter 6-byte custom data (XX:XX:XX:XX:XX:XX). Required for shutdown operation.'));
+			_('Enter 6-byte custom data (XX:XX:XX:XX:XX:XX). If not specified for shutdown, defaults to FF:FF:FF:FF:FF:FF.'));
 		o.placeholder = 'AA:BB:CC:DD:EE:FF';
+		o.default = 'FF:FF:FF:FF:FF:FF';
 		o.datatype = 'macaddr';
 		o.rmempty = true;
 		o.depends('action', 'shutdown');
 
-		// 广播标志
+		// 广播标志（始终显示）
 		if (has_ewk) {
 			o = s.option(form.Flag, 'broadcast', _('Send to broadcast address'));
 		}
@@ -100,28 +143,6 @@ return view.extend({
 		return m.render();
 	},
 
-	// 构造 WOL Magic Packet (102 字节)
-	// 格式: 6字节0xFF + 16次重复MAC地址 + 6字节附加数据
-	buildWOLPacket: function(mac, extraData) {
-		var macBytes = mac.replace(/:/g, '').match(/.{2}/g);
-		var extraBytes = extraData ? extraData.replace(/:/g, '').match(/.{2}/g) : ['00','00','00','00','00','00'];
-
-		// 确保附加数据是6字节
-		while (extraBytes.length < 6) {
-			extraBytes.push('00');
-		}
-		extraBytes = extraBytes.slice(0, 6);
-
-		// 构造数据包: FF*6 + MAC*16 + Extra*6
-		var packet = 'FFFFFFFFFFFF';
-		for (var i = 0; i < 16; i++) {
-			packet += macBytes.join('');
-		}
-		packet += extraBytes.join('');
-
-		return packet;
-	},
-
 	handleWakeup: function(ev) {
 		var map = document.querySelector('#maincontent .cbi-map'),
 			data = this.formdata;
@@ -133,21 +154,18 @@ return view.extend({
 			var action = data.wol.action || 'wake';
 
 			if (action === 'wake') {
-				// 唤醒操作：使用 etherwake 发送原始套接字
+				// 唤醒操作：使用 etherwake
 				if (!data.has_ewk) {
 					return alert(_('etherwake is not installed!'));
 				}
 
-				var bin = '/usr/bin/etherwake';
-				var args = ['-D', '-i', data.wol.iface];
+				var args = ['-D'];
+
+				if (data.wol.iface)
+					args.push('-i', data.wol.iface);
 
 				if (data.wol.broadcast == '1')
 					args.push('-b');
-
-				// 如果有附加数据，添加到 WOL 包中
-				if (data.wol.extra_data) {
-					args.push('-p', data.wol.extra_data);
-				}
 
 				args.push(data.wol.mac);
 
@@ -155,10 +173,10 @@ return view.extend({
 					E('p', { 'class': 'spinning' }, [ _('Starting WoL utility…') ])
 				]);
 
-				return fs.exec(bin, args).then(function(res) {
+				return this.callWolpExec('/usr/bin/etherwake', args).then(this.parseExecResult).then(function(res) {
 					ui.showModal(_('Waking host'), [
-						res.stdout ? E('p', [ res.stdout ]) : '',
-						res.stderr ? E('pre', [ res.stderr ]) : '',
+						res.stdout ? E('pre', [ res.stdout ]) : E('p', [ _('Command executed successfully') ]),
+						res.stderr ? E('pre', { 'style': 'color: red' }, [ res.stderr ]) : '',
 						E('div', { 'class': 'right' }, [
 							E('button', {
 								'class': 'cbi-button cbi-button-primary',
@@ -169,38 +187,61 @@ return view.extend({
 				}).catch(function(err) {
 					ui.hideModal();
 					ui.addNotification(null, [
-						E('p', [ _('Waking host failed') + ': ', err ])
+						E('p', [ _('Waking host failed') + ': ', err.message || err ])
 					]);
 				});
 
 			} else {
-				// 关机操作：使用 netcat 发送 UDP 数据包
+				// 关机操作：使用 netcat
 				if (!data.has_nc) {
 					return alert(_('netcat is not installed!'));
 				}
 
-				// 关机操作必须有附加数据
-				if (!data.wol.extra_data) {
-					return alert(_('Additional data is required for shutdown operation!'));
+				var udpPort = data.wol.udp_port || '9';
+				var extraData = data.wol.extra_data;
+
+				if (!extraData) {
+					extraData = 'FF:FF:FF:FF:FF:FF';
+					data.wol.extra_data = extraData;
+				}
+				var shutdownAddr = this.resolveShutdownAddress(data.wol.mac);
+
+				if (!shutdownAddr) {
+					return alert(_('No IPv4 address available for shutdown target. Ensure the host is online or has a host hint entry.'));
 				}
 
-				var udpPort = data.wol.udp_port || '9';
-				var packet = this.buildWOLPacket(data.wol.mac, data.wol.extra_data);
+				// 构造 WOL 数据包
+				var macBytes = data.wol.mac.replace(/:/g, '').match(/.{2}/g);
+				var extraBytes = extraData.replace(/:/g, '').match(/.{2}/g);
 
-				// 使用 printf 生成二进制数据并通过 netcat 发送
-				var cmd = 'printf "' + packet.match(/.{2}/g).map(function(b) {
-					return '\\x' + b;
-				}).join('') + '" | nc -u -w1 -b 255.255.255.255 ' + udpPort;
+				var packet = 'FFFFFFFFFFFF';
+				for (var i = 0; i < 16; i++) {
+					packet += macBytes.join('');
+				}
+				packet += extraBytes.join('');
+
+				var hexBytes = packet.match(/.{2}/g);
 
 				ui.showModal(_('Shutting down host'), [
-					E('p', { 'class': 'spinning' }, [ _('Sending shutdown command…') ])
+					E('p', { 'class': 'spinning' }, [ _('Checking host reachability…') ])
 				]);
 
-				return fs.exec('/bin/sh', ['-c', cmd]).then(function(res) {
+				var cmd = '(printf "' + hexBytes.map(function(b) { return '\\x' + b; }).join('') + '" | /usr/bin/netcat -u -w1 ' + shutdownAddr + ' ' + udpPort + ') >/dev/null 2>&1 &';
+
+				return this.callWolpProbe(shutdownAddr).then(function(res) {
+					if (!res || !res.reachable)
+						throw new Error(_('Device appears offline or unreachable'));
+
 					ui.showModal(_('Shutting down host'), [
-						E('p', [ _('Shutdown command sent successfully') ]),
+						E('p', { 'class': 'spinning' }, [ _('Sending shutdown command…') ])
+					]);
+
+					return this.callWolpExec('/bin/sh', [ '-c', cmd ]);
+				}.bind(this)).then(this.parseExecResult).then(function(res) {
+					ui.showModal(_('Shutting down host'), [
+						E('p', [ _('Shutdown request sent') ]),
 						res.stdout ? E('pre', [ res.stdout ]) : '',
-						res.stderr ? E('pre', [ res.stderr ]) : '',
+						res.stderr ? E('pre', { 'style': 'color: red' }, [ res.stderr ]) : '',
 						E('div', { 'class': 'right' }, [
 							E('button', {
 								'class': 'cbi-button cbi-button-primary',
@@ -211,7 +252,7 @@ return view.extend({
 				}).catch(function(err) {
 					ui.hideModal();
 					ui.addNotification(null, [
-						E('p', [ _('Shutting down host failed') + ': ', err ])
+						E('p', [ _('Shutting down host failed') + ': ', err.message || err ])
 					]);
 				});
 			}
@@ -219,16 +260,12 @@ return view.extend({
 	},
 
 	addFooter: function() {
-		var action = this.formdata.wol.action || 'wake';
-		var btnText = action === 'wake' ? _('Wake up host') : _('Shutdown host');
-		var btnClass = action === 'wake' ? 'cbi-button-save' : 'cbi-button-reset';
-
 		return E('div', { 'class': 'cbi-page-actions' },
 			[
 				E('button', {
-					'class': 'cbi-button ' + btnClass,
+					'class': 'cbi-button cbi-button-save',
 					'click': L.ui.createHandlerFn(this, 'handleWakeup')
-				}, [ btnText ])
+				}, [ _('Execute') ])
 			]
 		);
 	}

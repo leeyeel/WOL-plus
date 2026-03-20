@@ -8,3 +8,5 @@ wolp
 *.ipk
 wolp-test
 ipk-build/
+po2lmo
+*.MD

@@ -1,0 +1,104 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: en\n"
+
+# Page title and description
+msgid "Wake on LAN Plus"
+msgstr ""
+
+msgid "Wake on LAN Plus is a mechanism to boot and shutdown computers remotely in the local network."
+msgstr ""
+
+# Form fields - Action
+msgid "Action"
+msgstr ""
+
+msgid "Choose whether to wake up or shutdown the host"
+msgstr ""
+
+msgid "Wake up"
+msgstr ""
+
+msgid "Shutdown"
+msgstr ""
+
+# Form fields - Network interface
+msgid "Network interface to use"
+msgstr ""
+
+msgid "Specifies the interface the WoL packet is sent on"
+msgstr ""
+
+# Form fields - Host
+msgid "Host to wake up or shutdown"
+msgstr ""
+
+msgid "Choose the host to control or enter a custom MAC address to use"
+msgstr ""
+
+# Form fields - Additional Data
+msgid "Additional Data"
+msgstr ""
+
+msgid "Enter 6-byte custom data (XX:XX:XX:XX:XX:XX). If not specified for shutdown, defaults to FF:FF:FF:FF:FF:FF."
+msgstr ""
+
+# Form fields - Broadcast
+msgid "Send to broadcast address"
+msgstr ""
+
+# Form fields - UDP Port
+msgid "UDP Port for Shutdown"
+msgstr ""
+
+msgid "UDP port to send shutdown command (default: 9)"
+msgstr ""
+
+# Buttons
+msgid "Execute"
+msgstr ""
+
+msgid "Command executed successfully"
+msgstr ""
+
+# Success messages
+msgid "Waking host"
+msgstr ""
+
+msgid "Starting WoL utility…"
+msgstr ""
+
+msgid "Shutting down host"
+msgstr ""
+
+msgid "Checking host reachability…"
+msgstr ""
+
+msgid "Sending shutdown command…"
+msgstr ""
+
+msgid "Shutdown request sent"
+msgstr ""
+
+msgid "Dismiss"
+msgstr ""
+
+# Error messages
+msgid "No target host specified!"
+msgstr ""
+
+msgid "etherwake is not installed!"
+msgstr ""
+
+msgid "netcat is not installed!"
+msgstr ""
+
+msgid "Waking host failed"
+msgstr ""
+
+msgid "Shutting down host failed"
+msgstr ""
+
+msgid "Device appears offline or unreachable"
+msgstr ""
