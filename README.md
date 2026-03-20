@@ -233,7 +233,7 @@ skill 入口脚本：
 
 设备清单文件：
 
-- `skill/wolp-lan-power-control/devices.json`
+- `skill/wolp-lan-power-control/assets/devices.json`
 
 ### 安装依赖
 
@@ -291,11 +291,19 @@ python3 skill/wolp-lan-power-control/scripts/wolp_power.py shutdown --host 192.1
     "nas": {
       "mac": "AA:BB:CC:DD:EE:FF",
       "host": "192.168.1.50",
-      "broadcast_ip": "192.168.1.255"
+      "broadcast_ip": "192.168.1.255",
+      "last_action": "wake",
+      "last_success_at": "2026-03-21T00:00:00Z"
     }
   }
 }
 ```
+
+实际发送成功后，脚本也会自动把当前解析出的设备信息写回 `devices.json`：
+
+- 指定了 `--device <name>` 时，更新对应条目
+- 未指定 `--device` 时，优先按相同 MAC 复用已有条目；否则自动创建 `device-<mac>` 条目
+- 同一设备多次 `wake/shutdown` 会持续刷新该设备的最新字段和成功时间
 
 然后就可以直接按名称发送：
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+from datetime import datetime, timezone
 import ipaddress
 import json
 import socket
@@ -12,7 +13,7 @@ DEFAULT_EXTRA_DATA = "FF:FF:FF:FF:FF:FF"
 DEFAULT_UDP_PORT = 9
 DEFAULT_WAKE_IP = "255.255.255.255"
 SYNC_BYTES = b"\xff" * 6
-DEFAULT_DEVICE_FILE = Path(__file__).resolve().parent.parent / "devices.json"
+DEFAULT_DEVICE_FILE = Path(__file__).resolve().parent.parent / "assets" / "devices.json"
 
 
 def normalize_mac(value: str) -> str:
@@ -67,6 +68,27 @@ def load_inventory(path: Path) -> dict:
     return inventory
 
 
+def load_or_init_inventory(path: Path) -> dict:
+    try:
+        inventory = load_inventory(path)
+    except ValueError as exc:
+        if path.exists():
+            raise
+        inventory = {}
+
+    defaults = inventory.get("defaults", {})
+    devices = inventory.get("devices", {})
+
+    if not isinstance(defaults, dict):
+        raise ValueError(f"inventory defaults must be an object: {path}")
+    if not isinstance(devices, dict):
+        raise ValueError(f"inventory devices must be an object: {path}")
+
+    inventory["defaults"] = defaults
+    inventory["devices"] = devices
+    return inventory
+
+
 def resolve_device_file(device_file: str | None) -> Path:
     if device_file:
         return Path(device_file).expanduser().resolve()
@@ -92,12 +114,104 @@ def resolve_device_entry(device: str, device_file: str | None) -> tuple[dict, Pa
     return resolved, path
 
 
+def resolve_record_path(device_file: str | None, resolved_path: Path | None = None) -> Path:
+    if resolved_path is not None:
+        return resolved_path
+    return resolve_device_file(device_file)
+
+
 def prefer(cli_value, inventory_value, fallback=None):
     if cli_value is not None:
         return cli_value
     if inventory_value is not None:
         return inventory_value
     return fallback
+
+
+def normalize_inventory_fields(entry: dict) -> dict:
+    normalized = {}
+
+    if "mac" in entry and entry["mac"] is not None:
+        normalized["mac"] = normalize_mac(str(entry["mac"]))
+    if "host" in entry and entry["host"] is not None:
+        normalized["host"] = normalize_host(str(entry["host"]))
+    if "broadcast_ip" in entry and entry["broadcast_ip"] is not None:
+        normalized["broadcast_ip"] = normalize_host(str(entry["broadcast_ip"]))
+    if "extra_data" in entry and entry["extra_data"] is not None:
+        normalized["extra_data"] = normalize_mac(str(entry["extra_data"]))
+    if "port" in entry and entry["port"] is not None:
+        normalized["port"] = normalize_port(int(entry["port"]))
+    if "last_action" in entry and entry["last_action"] is not None:
+        normalized["last_action"] = str(entry["last_action"])
+    if "last_success_at" in entry and entry["last_success_at"] is not None:
+        normalized["last_success_at"] = str(entry["last_success_at"])
+
+    return normalized
+
+
+def find_device_name_by_mac(devices: dict, mac: str) -> str | None:
+    for name, entry in devices.items():
+        if not isinstance(entry, dict):
+            continue
+        entry_mac = entry.get("mac")
+        if entry_mac is None:
+            continue
+        try:
+            if normalize_mac(str(entry_mac)) == mac:
+                return name
+        except ValueError:
+            continue
+    return None
+
+
+def make_device_name(mac: str) -> str:
+    return f"device-{mac.replace(':', '').lower()}"
+
+
+def save_inventory(path: Path, inventory: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        json.dump(inventory, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+
+
+def update_inventory_record(
+    *,
+    action: str,
+    device: str | None,
+    device_file: str | None,
+    resolved_path: Path | None,
+    fields: dict,
+) -> tuple[str, Path]:
+    path = resolve_record_path(device_file, resolved_path)
+    inventory = load_or_init_inventory(path)
+    devices = inventory["devices"]
+
+    normalized_fields = normalize_inventory_fields(fields)
+    mac = normalized_fields.get("mac")
+
+    record_name = device
+    if record_name is None and mac is not None:
+        record_name = find_device_name_by_mac(devices, mac)
+    if record_name is None:
+        if mac is None:
+            raise ValueError("inventory update requires a mac address")
+        record_name = make_device_name(mac)
+
+    existing_entry = devices.get(record_name, {})
+    if existing_entry is None:
+        existing_entry = {}
+    if not isinstance(existing_entry, dict):
+        raise ValueError(f"device entry for {record_name!r} must be an object")
+
+    updated_entry = dict(existing_entry)
+    updated_entry.update(normalized_fields)
+    updated_entry["last_action"] = action
+    updated_entry["last_success_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+    devices[record_name] = updated_entry
+    save_inventory(path, inventory)
+    return record_name, path
 
 
 def build_magic_payload(mac_bytes: bytes) -> bytes:
@@ -184,17 +298,7 @@ def list_devices(device_file: str | None) -> dict:
     defaults = inventory.get("defaults", {})
     devices = inventory.get("devices", {})
 
-    resolved_defaults = dict(defaults)
-    if "mac" in resolved_defaults and resolved_defaults["mac"] is not None:
-        resolved_defaults["mac"] = normalize_mac(str(resolved_defaults["mac"]))
-    if "extra_data" in resolved_defaults and resolved_defaults["extra_data"] is not None:
-        resolved_defaults["extra_data"] = normalize_mac(str(resolved_defaults["extra_data"]))
-    if "host" in resolved_defaults and resolved_defaults["host"] is not None:
-        resolved_defaults["host"] = normalize_host(str(resolved_defaults["host"]))
-    if "broadcast_ip" in resolved_defaults and resolved_defaults["broadcast_ip"] is not None:
-        resolved_defaults["broadcast_ip"] = normalize_host(str(resolved_defaults["broadcast_ip"]))
-    if "port" in resolved_defaults and resolved_defaults["port"] is not None:
-        resolved_defaults["port"] = normalize_port(int(resolved_defaults["port"]))
+    resolved_defaults = normalize_inventory_fields(dict(defaults))
 
     resolved_devices = {}
     for name, entry in devices.items():
@@ -202,17 +306,7 @@ def list_devices(device_file: str | None) -> dict:
             raise ValueError(f"device entry for {name!r} must be an object")
 
         resolved = dict(resolved_defaults)
-        resolved.update(entry)
-        if "mac" in resolved and resolved["mac"] is not None:
-            resolved["mac"] = normalize_mac(str(resolved["mac"]))
-        if "extra_data" in resolved and resolved["extra_data"] is not None:
-            resolved["extra_data"] = normalize_mac(str(resolved["extra_data"]))
-        if "host" in resolved and resolved["host"] is not None:
-            resolved["host"] = normalize_host(str(resolved["host"]))
-        if "broadcast_ip" in resolved and resolved["broadcast_ip"] is not None:
-            resolved["broadcast_ip"] = normalize_host(str(resolved["broadcast_ip"]))
-        if "port" in resolved and resolved["port"] is not None:
-            resolved["port"] = normalize_port(int(resolved["port"]))
+        resolved.update(normalize_inventory_fields(entry))
 
         resolved_devices[name] = resolved
 
@@ -314,7 +408,21 @@ def main(argv: list[str]) -> int:
                 port=int(port),
                 dry_run=args.dry_run,
             )
-            if args.device:
+            if not args.dry_run:
+                recorded_device, recorded_path = update_inventory_record(
+                    action="wake",
+                    device=args.device,
+                    device_file=args.device_file,
+                    resolved_path=device_file,
+                    fields={
+                        "mac": result["target_mac"],
+                        "broadcast_ip": result["broadcast_ip"],
+                        "port": result["port"],
+                    },
+                )
+                result["device"] = recorded_device
+                result["device_file"] = str(recorded_path)
+            elif args.device:
                 result["device"] = args.device
                 result["device_file"] = str(device_file)
         else:
@@ -340,7 +448,22 @@ def main(argv: list[str]) -> int:
                 port=int(port),
                 dry_run=args.dry_run,
             )
-            if args.device:
+            if not args.dry_run:
+                recorded_device, recorded_path = update_inventory_record(
+                    action="shutdown",
+                    device=args.device,
+                    device_file=args.device_file,
+                    resolved_path=device_file,
+                    fields={
+                        "mac": result["target_mac"],
+                        "host": result["host"],
+                        "extra_data": result["extra_data"],
+                        "port": result["port"],
+                    },
+                )
+                result["device"] = recorded_device
+                result["device_file"] = str(recorded_path)
+            elif args.device:
                 result["device"] = args.device
                 result["device_file"] = str(device_file)
     except OSError as exc:

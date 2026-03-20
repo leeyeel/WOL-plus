@@ -1,0 +1,14 @@
+{
+  "defaults": {
+    "broadcast_ip": "255.255.255.255",
+    "port": 9,
+    "extra_data": "FF:FF:FF:FF:FF:FF"
+  },
+  "devices": {
+    "device-c87f54": {
+      "mac": "C8:7F:54:9E:60:B2",
+      "host": "192.168.50.18",
+      "extra_data": "AA:BB:CC:DD:11:22"
+    }
+  }
+}
