@@ -102,11 +102,16 @@ Client install and config:
 
 - Project: `https://github.com/leeyeel/WOL-plus`
 - Releases: `https://github.com/leeyeel/WOL-plus/releases`
-- Client receives shutdown packets and serves the Web UI.
-- Default Web UI access:
+- Client receives shutdown packets and can optionally serve the Web UI.
+- Default Web UI access when enabled:
   - URL: `http://<client-ip>:2025`
   - username: `admin`
   - password: `admin123`
+- Backend-only mode:
+  - start with `wolp --backend-only`
+  - Web UI assets may be omitted
+  - service installs that omit Web UI should run `ExecStart=/usr/local/bin/wolp --backend-only`
+  - configure `/usr/local/etc/wolp/wolp.json` directly
 
 Agent standard install procedure:
 
@@ -136,14 +141,15 @@ Agent standard install procedure:
      ```
 4. Debian build fallback from this repo:
    ```bash
-   bash scripts/build-deb.sh amd64 0.0.0-dev
+   bash scripts/build-deb.sh --without-webui amd64 0.0.0-dev
    sudo dpkg -i release/client/wolp-client_0.0.0-dev_amd64.deb
    sudo systemctl status wolp.service
    ```
 5. Verify the client after install:
    - confirm `wolp.service` is active
-   - confirm the Web UI responds at `http://<client-ip>:2025`
-   - tell the user to change the default password after first login
+   - if Web UI is installed, confirm it responds at `http://<client-ip>:2025`
+   - if backend-only mode is enabled, confirm port `2025` is not expected to listen
+   - if Web UI is enabled, tell the user to change the default password after first login
 6. Configure the client when the user wants shutdown support:
    - edit `/usr/local/etc/wolp/wolp.json`
    - set `mac_address` to the client machine MAC that should receive the shutdown packet
@@ -154,8 +160,9 @@ Agent standard install procedure:
 7. Remember the fixed defaults and path layout:
    - binary: `/usr/local/bin/wolp`
    - config: `/usr/local/etc/wolp/wolp.json`
-   - web UI: `/usr/share/wolp/webui`
+   - web UI: `/usr/share/wolp/webui` when installed
    - service: `wolp.service`
+   - runtime flag `--backend-only` disables the HTTP server
    - default `extra_data=FF:FF:FF:FF:FF:FF`
    - default `udp_port=9`
    - default `shutdown_delay=60`
@@ -170,4 +177,4 @@ When reporting results or performing installs:
 - for wake, report that the packet is sent through the `wakeonlan` Python package
 - state clearly whether the script performed a real send or a dry run
 - if the user did not provide enough data, ask only for the missing MAC, target IPv4 address, or wake broadcast IP when needed
-- if you install the client, report the package source, package path, config path, Web UI URL, and the exact `extra_data` and `udp_port` values you configured
+- if you install the client, report the package source, package path, config path, whether Web UI is installed, and the exact `extra_data` and `udp_port` values you configured

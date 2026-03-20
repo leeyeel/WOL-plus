@@ -105,9 +105,9 @@ opkg install /tmp/luci-i18n-wolp-zh-cn_<version>_<arch>.ipk
 
 ## Client 端安装与使用
 
-Client 端负责接收关机包，并提供 Web UI 配置页面。
+Client 端负责接收关机包；默认提供 Web UI 配置页面，也支持纯后端运行。
 
-默认 Web UI 地址：
+默认带 Web UI 运行时，访问地址：
 
 - `http://<client-ip>:2025`
 
@@ -117,6 +117,14 @@ Client 端负责接收关机包，并提供 Web UI 配置页面。
 - 密码：`admin123`
 
 首次登录后建议立即修改密码。
+
+如果设备资源紧张，或你只想保留 UDP 监听后端，可直接使用：
+
+```bash
+/usr/local/bin/wolp --backend-only
+```
+
+该模式下可以不安装 `/usr/share/wolp/webui`，程序也不会启动 HTTP server；配置改为直接编辑 `/usr/local/etc/wolp/wolp.json`。
 
 ### Windows 安装
 
@@ -139,6 +147,12 @@ sudo dpkg -i wolp-client_<version>_amd64.deb
 sudo systemctl status wolp.service
 ```
 
+如需自行构建不带 Web UI 的 Debian 包：
+
+```bash
+bash scripts/build-deb.sh --without-webui amd64 0.0.0-dev
+```
+
 ### RPM 系 Linux 安装
 
 从 Releases 下载对应架构的 `.rpm` 包后安装：
@@ -148,13 +162,19 @@ sudo rpm -ivh wolp-client-<version>-1.x86_64.rpm
 sudo systemctl status wolp.service
 ```
 
+如需自行构建不带 Web UI 的 RPM 包：
+
+```bash
+bash scripts/build-rpm.sh --without-webui amd64 0.0.0-dev
+```
+
 ### Linux 安装后的文件位置
 
 Linux Client 默认路径如下：
 
 - 可执行文件：`/usr/local/bin/wolp`
 - 配置文件：`/usr/local/etc/wolp/wolp.json`
-- Web UI：`/usr/share/wolp/webui`
+- Web UI：`/usr/share/wolp/webui`（可选）
 - systemd 服务：`wolp.service`
 
 ### Client 端 Web UI 配置
@@ -171,6 +191,30 @@ Client 端重点配置项：
 - `username` / `password`
   - Web UI 登录凭据
 
+### 纯后端模式
+
+纯后端模式下，`wolp` 只保留 UDP 监听，不启动 Web UI，也不会监听 `2025` 端口。
+
+常见用法：
+
+```bash
+/usr/local/bin/wolp --backend-only
+```
+
+如果你通过 `make install` 安装，也可以跳过 Web UI 文件：
+
+```bash
+make install INSTALL_WEBUI=0
+```
+
+此时安装出的 systemd 服务会自动以 `--backend-only` 方式启动。
+
+如果需要让 systemd 以纯后端模式运行，可把 `ExecStart` 改成：
+
+```ini
+ExecStart=/usr/local/bin/wolp --backend-only
+```
+
 仓库里的默认配置值是：
 
 - `extra_data = FF:FF:FF:FF:FF:FF`
@@ -183,11 +227,15 @@ Client 端重点配置项：
 
 先在目标电脑上安装 Windows、Debian/Ubuntu 或 RPM 包。
 
-### 2. 打开 Client Web UI
+### 2. 配置 Client
 
-访问：
+带 Web UI 模式下访问：
 
 - `http://<client-ip>:2025`
+
+纯后端模式下直接编辑：
+
+- `/usr/local/etc/wolp/wolp.json`
 
 记录并确认这些值：
 

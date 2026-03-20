@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -67,6 +68,10 @@ var (
 	configMutex sync.RWMutex
 )
 
+type runtimeOptions struct {
+	BackendOnly bool
+}
+
 func getConfigPath() (string, string) {
 	if configPath := os.Getenv("CONFIG_FILE"); configPath != "" {
 		webuiPath := os.Getenv("WEBUI_DIR")
@@ -80,6 +85,36 @@ func getConfigPath() (string, string) {
 		return `C:\ProgramData\wolp\wolp.json`, `C:\Program Files\wolp\webui\`
 	}
 	return `/usr/local/etc/wolp/wolp.json`, `/usr/share/wolp/webui/`
+}
+
+func parseRuntimeOptions() runtimeOptions {
+	backendOnly := flag.Bool("backend-only", false, "run the UDP listener without starting the Web UI or HTTP server")
+	flag.Parse()
+
+	return runtimeOptions{
+		BackendOnly: *backendOnly,
+	}
+}
+
+func validateWebUIPath(path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("not a directory")
+	}
+
+	indexPath := filepath.Join(path, "index.html")
+	info, err = os.Stat(indexPath)
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		return fmt.Errorf("%s is a directory", indexPath)
+	}
+
+	return nil
 }
 
 func loadConfig(path string) {
@@ -603,32 +638,22 @@ func handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 
 // shutdown 用于优雅关闭服务和抓包 goroutine
 func terminate() {
-	// 关闭 HTTP 服务
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := server.Shutdown(ctx); err != nil {
-		log.Printf("HTTP server shutdown error: %v", err)
+	if server != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(ctx); err != nil {
+			log.Printf("HTTP server shutdown error: %v", err)
+		}
 	}
 
 	stopListeners()
 }
 
-func main() {
-	// 1. 读取/初始化配置
-	configFilePath, webuiPath = getConfigPath()
-	log.Printf("Config file: %s\n", configFilePath)
-	loadConfig(configFilePath)
-
-	// 2. 启动监听 goroutine
-	restartListeners()
-
-	// 3. 启动 HTTP 服务器
+func startHTTPServer() {
 	r := mux.NewRouter()
 
-	// 3.1 为 API 配置路由（使用认证中间件）
 	api := r.PathPrefix("/api").Subrouter()
 
-	// GET /api/config 需要认证（登录验证）
 	api.HandleFunc("/config", apiAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		configMutex.RLock()
 		safeConfig := struct {
@@ -650,16 +675,10 @@ func main() {
 		json.NewEncoder(w).Encode(safeConfig)
 	})).Methods("GET")
 
-	// POST /api/config 需要认证（更新配置）
 	api.HandleFunc("/config", apiAuthMiddleware(handleConfigUpdate)).Methods("POST")
-
-	// POST /api/cancel 需要认证（取消关机）
 	api.HandleFunc("/cancel", apiAuthMiddleware(cancelShutdownTimer)).Methods("POST")
-
-	// GET /api/remaining 不需要认证（剩余时间）
 	api.HandleFunc("/remaining", getRemainingTime).Methods("GET")
 
-	// 3.2 静态文件（使用认证中间件）
 	r.PathPrefix("/").Handler(basicAuthMiddleware(http.FileServer(http.Dir(webuiPath))))
 
 	server = &http.Server{Addr: ":2025", Handler: r}
@@ -671,6 +690,32 @@ func main() {
 			log.Fatalf("ListenAndServe error: %v", err)
 		}
 	}()
+}
+
+func main() {
+	runtimeOpts := parseRuntimeOptions()
+
+	// 1. 读取/初始化配置
+	configFilePath, webuiPath = getConfigPath()
+	log.Printf("Config file: %s\n", configFilePath)
+	loadConfig(configFilePath)
+
+	if runtimeOpts.BackendOnly {
+		log.Println("Backend-only mode enabled, skip Web UI and HTTP server startup.")
+	} else {
+		if err := validateWebUIPath(webuiPath); err != nil {
+			log.Fatalf("Web UI assets unavailable at %s: %v. Install the Web UI assets or start wolp with --backend-only.", webuiPath, err)
+		}
+		log.Printf("Web UI path: %s\n", webuiPath)
+	}
+
+	// 2. 启动监听 goroutine
+	restartListeners()
+
+	if !runtimeOpts.BackendOnly {
+		// 3. 启动 HTTP 服务器
+		startHTTPServer()
+	}
 
 	// 4. 监听系统信号，用于优雅退出
 	signalChan := make(chan os.Signal, 1)

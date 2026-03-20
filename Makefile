@@ -3,6 +3,7 @@ ETCDIR ?= /usr/share/wolp
 CONFIGDIR ?= $(PREFIX)/etc/wolp
 BINDIR ?= $(PREFIX)/bin
 SYSTEMD_DIR ?= /etc/systemd/system
+INSTALL_WEBUI ?= 1
 
 all:
 	@echo "build wolp"
@@ -18,16 +19,23 @@ install:
 	install -d $(CONFIGDIR)
 	install -m 644 client/wolp.json $(CONFIGDIR)/wolp.json
 
-	# 安装 webui
-	install -d $(ETCDIR)/webui
-	install -d $(ETCDIR)/webui/css
-	install -d $(ETCDIR)/webui/js
-	install -m 644 client/webui/index.html $(ETCDIR)/webui/index.html
-	install -m 644 client/webui/css/*.css $(ETCDIR)/webui/css/
-	install -m 644 client/webui/js/*.js $(ETCDIR)/webui/js/
+	# 按需安装 webui
+	if [ "$(INSTALL_WEBUI)" != "0" ]; then \
+		install -d $(ETCDIR)/webui; \
+		install -d $(ETCDIR)/webui/css; \
+		install -d $(ETCDIR)/webui/js; \
+		install -m 644 client/webui/index.html $(ETCDIR)/webui/index.html; \
+		install -m 644 client/webui/css/*.css $(ETCDIR)/webui/css/; \
+		install -m 644 client/webui/js/*.js $(ETCDIR)/webui/js/; \
+	fi
 
 	# 安装 Systemd 服务文件
-	install -m 644 client/systemd/wolp.service $(SYSTEMD_DIR)/wolp.service
+	if [ "$(INSTALL_WEBUI)" = "0" ]; then \
+		sed 's#^ExecStart=/usr/local/bin/wolp$$#ExecStart=/usr/local/bin/wolp --backend-only#' client/systemd/wolp.service > $(SYSTEMD_DIR)/wolp.service; \
+		chmod 644 $(SYSTEMD_DIR)/wolp.service; \
+	else \
+		install -m 644 client/systemd/wolp.service $(SYSTEMD_DIR)/wolp.service; \
+	fi
 
 	# 重新加载 systemd 并启用 wolp
 	systemctl daemon-reload
@@ -51,5 +59,3 @@ uninstall:
 
 clean:
 	rm -rf wolp
-
-

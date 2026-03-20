@@ -2,8 +2,30 @@
 
 set -euo pipefail
 
+usage() {
+    echo "Usage: $0 [--without-webui] <amd64|arm64> [version]" >&2
+}
+
+INCLUDE_WEBUI=1
+POSITIONAL=()
+for arg in "$@"; do
+    case "$arg" in
+        --without-webui)
+            INCLUDE_WEBUI=0
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            POSITIONAL+=("$arg")
+            ;;
+    esac
+done
+set -- "${POSITIONAL[@]}"
+
 if [[ $# -lt 1 || $# -gt 2 ]]; then
-    echo "Usage: $0 <amd64|arm64> [version]" >&2
+    usage
     exit 1
 fi
 
@@ -32,15 +54,24 @@ PKG_NAME="wolp-client"
 PKG_FILE="$OUTPUT_DIR/${PKG_NAME}_${VERSION}_${ARCH}.deb"
 
 rm -rf "$BUILD_ROOT"
-mkdir -p "$BIN_DIR" "$ETC_DIR" "$WEBUI_DIR" "$SYSTEMD_DIR" "$DEBIAN_DIR" "$OUTPUT_DIR"
+mkdir -p "$BIN_DIR" "$ETC_DIR" "$SYSTEMD_DIR" "$DEBIAN_DIR" "$OUTPUT_DIR"
+if [[ "$INCLUDE_WEBUI" -eq 1 ]]; then
+    mkdir -p "$WEBUI_DIR"
+fi
 
 pushd "$REPO_ROOT/client/src" >/dev/null
 GOOS=linux GOARCH="$ARCH" CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o "$BIN_DIR/wolp" .
 popd >/dev/null
 
 install -m 0644 "$REPO_ROOT/client/wolp.json" "$ETC_DIR/wolp.json"
-cp -R "$REPO_ROOT/client/webui/." "$WEBUI_DIR/"
-install -m 0644 "$REPO_ROOT/client/systemd/wolp.service" "$SYSTEMD_DIR/wolp.service"
+if [[ "$INCLUDE_WEBUI" -eq 1 ]]; then
+    cp -R "$REPO_ROOT/client/webui/." "$WEBUI_DIR/"
+    install -m 0644 "$REPO_ROOT/client/systemd/wolp.service" "$SYSTEMD_DIR/wolp.service"
+else
+    sed 's#^ExecStart=/usr/local/bin/wolp$#ExecStart=/usr/local/bin/wolp --backend-only#' \
+        "$REPO_ROOT/client/systemd/wolp.service" > "$SYSTEMD_DIR/wolp.service"
+    chmod 0644 "$SYSTEMD_DIR/wolp.service"
+fi
 
 cat > "$DEBIAN_DIR/control" <<EOF
 Package: $PKG_NAME
@@ -51,7 +82,7 @@ Architecture: $ARCH
 Maintainer: leeyeel <mumuli52@gmail.com>
 Depends: systemd
 Description: Wake On LAN Plus client
- UDP-based shutdown listener and web UI client for Wake On LAN Plus.
+ UDP-based shutdown listener with optional web UI for Wake On LAN Plus.
 EOF
 
 cat > "$DEBIAN_DIR/conffiles" <<EOF

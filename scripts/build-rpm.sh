@@ -2,8 +2,30 @@
 
 set -euo pipefail
 
+usage() {
+    echo "Usage: $0 [--without-webui] <amd64|arm64> [version]" >&2
+}
+
+INCLUDE_WEBUI=1
+POSITIONAL=()
+for arg in "$@"; do
+    case "$arg" in
+        --without-webui)
+            INCLUDE_WEBUI=0
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            POSITIONAL+=("$arg")
+            ;;
+    esac
+done
+set -- "${POSITIONAL[@]}"
+
 if [[ $# -lt 1 || $# -gt 2 ]]; then
-    echo "Usage: $0 <amd64|arm64> [version]" >&2
+    usage
     exit 1
 fi
 
@@ -83,7 +105,6 @@ rm -rf "$BUILD_ROOT"
 mkdir -p \
     "$BIN_DIR" \
     "$CONFIG_DIR" \
-    "$WEBUI_DIR" \
     "$SYSTEMD_DIR" \
     "$OUTPUT_DIR" \
     "$RPMBUILD_ROOT/BUILD" \
@@ -92,14 +113,34 @@ mkdir -p \
     "$RPMBUILD_ROOT/SOURCES" \
     "$RPMBUILD_ROOT/SPECS" \
     "$RPMBUILD_ROOT/SRPMS"
+if [[ "$INCLUDE_WEBUI" -eq 1 ]]; then
+    mkdir -p "$WEBUI_DIR"
+fi
 
 pushd "$REPO_ROOT/client/src" >/dev/null
 GOOS=linux GOARCH="$GO_ARCH" CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o "$BIN_DIR/wolp" .
 popd >/dev/null
 
 install -m 0644 "$REPO_ROOT/client/wolp.json" "$CONFIG_DIR/wolp.json"
-cp -R "$REPO_ROOT/client/webui/." "$WEBUI_DIR/"
-install -m 0644 "$REPO_ROOT/client/systemd/wolp.service" "$SYSTEMD_DIR/wolp.service"
+if [[ "$INCLUDE_WEBUI" -eq 1 ]]; then
+    cp -R "$REPO_ROOT/client/webui/." "$WEBUI_DIR/"
+    install -m 0644 "$REPO_ROOT/client/systemd/wolp.service" "$SYSTEMD_DIR/wolp.service"
+else
+    sed 's#^ExecStart=/usr/local/bin/wolp$#ExecStart=/usr/local/bin/wolp --backend-only#' \
+        "$REPO_ROOT/client/systemd/wolp.service" > "$SYSTEMD_DIR/wolp.service"
+    chmod 0644 "$SYSTEMD_DIR/wolp.service"
+fi
+
+RPM_WEBUI_INSTALL_BLOCK=""
+RPM_WEBUI_FILES_BLOCK=""
+if [[ "$INCLUDE_WEBUI" -eq 1 ]]; then
+    RPM_WEBUI_INSTALL_BLOCK=$(cat <<EOF
+install -d %{buildroot}/usr/share/wolp
+cp -a "$STAGE_ROOT/usr/share/wolp" %{buildroot}/usr/share/
+EOF
+)
+    RPM_WEBUI_FILES_BLOCK="/usr/share/wolp"
+fi
 
 cat > "$SPEC_FILE" <<EOF
 %global debug_package %{nil}
@@ -112,7 +153,7 @@ License:        MIT
 Requires:       systemd
 
 %description
-UDP-based shutdown listener and web UI client for Wake On LAN Plus.
+UDP-based shutdown listener with optional web UI for Wake On LAN Plus.
 
 %prep
 :
@@ -124,18 +165,17 @@ UDP-based shutdown listener and web UI client for Wake On LAN Plus.
 rm -rf %{buildroot}
 install -d %{buildroot}/usr/local/bin
 install -d %{buildroot}/usr/local/etc/wolp
-install -d %{buildroot}/usr/share/wolp
 install -d %{buildroot}/usr/lib/systemd/system
 install -m 0755 "$BIN_DIR/wolp" %{buildroot}/usr/local/bin/wolp
 install -m 0644 "$CONFIG_DIR/wolp.json" %{buildroot}/usr/local/etc/wolp/wolp.json
-cp -a "$STAGE_ROOT/usr/share/wolp" %{buildroot}/usr/share/
+$RPM_WEBUI_INSTALL_BLOCK
 install -m 0644 "$SYSTEMD_DIR/wolp.service" %{buildroot}/usr/lib/systemd/system/wolp.service
 
 %files
 %defattr(-,root,root,-)
 %config(noreplace) /usr/local/etc/wolp/wolp.json
 /usr/local/bin/wolp
-/usr/share/wolp
+$RPM_WEBUI_FILES_BLOCK
 /usr/lib/systemd/system/wolp.service
 
 %post
