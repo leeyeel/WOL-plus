@@ -16,6 +16,8 @@ Supported operations:
 Use the bundled Python script:
 
 - `scripts/wolp_power.py`
+- `scripts/build_wake_helper.sh`
+- `scripts/wolp_wake_helper.c`
 - `devices.json`
 
 Required inputs:
@@ -31,7 +33,25 @@ Required inputs:
 
 Constraints:
 
-- `wake` requires Linux and raw-socket access. Run as `root` or with `CAP_NET_RAW`.
+- `shutdown` uses a normal UDP socket and does not require `root`.
+- `wake` uses a separate raw-frame helper on Linux. Only the helper needs `root` or `CAP_NET_RAW`.
+- Build the helper once:
+- Preferred setup uses `setcap`:
+
+```bash
+bash skill/wolp-lan-power-control/scripts/build_wake_helper.sh
+sudo setcap cap_net_raw+ep skill/wolp-lan-power-control/scripts/wolp_wake_helper
+```
+
+- If `setcap` is not available, use `--sudo-helper` so only the helper runs with `sudo`:
+
+```bash
+python3 skill/wolp-lan-power-control/scripts/wolp_power.py wake --device nas --sudo-helper
+```
+
+- `--sudo-helper` calls `sudo -n`, so configure passwordless sudo for the helper path if you want non-interactive agent execution.
+- Do not run the whole Python script as `root` unless necessary.
+- The Python script delegates `wake` to `wolp_wake_helper`, so the main script can remain unprivileged.
 - `shutdown` requires IP connectivity to the target host and a compatible WOL-plus listener on the target machine.
 - Packet send confirms only local transmission, not that the remote machine actually changed power state.
 
@@ -70,8 +90,10 @@ Device inventory:
 Preferred commands:
 
 ```bash
+bash skill/wolp-lan-power-control/scripts/build_wake_helper.sh
 python3 skill/wolp-lan-power-control/scripts/wolp_power.py list
 python3 skill/wolp-lan-power-control/scripts/wolp_power.py wake --device nas
+python3 skill/wolp-lan-power-control/scripts/wolp_power.py wake --device nas --sudo-helper
 python3 skill/wolp-lan-power-control/scripts/wolp_power.py shutdown --device nas
 python3 skill/wolp-lan-power-control/scripts/wolp_power.py wake --interface br-lan --mac AA:BB:CC:DD:EE:FF
 python3 skill/wolp-lan-power-control/scripts/wolp_power.py shutdown --host 192.168.1.50 --mac AA:BB:CC:DD:EE:FF --extra-data FF:FF:FF:FF:FF:FF --port 9
@@ -122,6 +144,7 @@ sudo systemctl status wolp.service
 When reporting results or performing installs:
 
 - echo the resolved interface, host, UDP port, and normalized MAC values
+- for wake, report which helper path is being used
 - state clearly whether the script performed a real send or a dry run
 - if the user did not provide enough data, ask only for the missing interface, MAC, or target IPv4 address
 - if you install the client, report the package path, config path, and the exact `extra_data` and `udp_port` values you configured

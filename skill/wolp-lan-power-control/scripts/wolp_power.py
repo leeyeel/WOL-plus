@@ -5,6 +5,7 @@ import ipaddress
 import json
 import socket
 import struct
+import subprocess
 import sys
 from pathlib import Path
 
@@ -21,6 +22,7 @@ DEFAULT_EXTRA_DATA = "FF:FF:FF:FF:FF:FF"
 DEFAULT_UDP_PORT = 9
 BROADCAST_MAC = b"\xff" * 6
 DEFAULT_DEVICE_FILE = Path(__file__).resolve().parent.parent / "devices.json"
+DEFAULT_WAKE_HELPER = Path(__file__).resolve().with_name("wolp_wake_helper")
 
 
 def normalize_mac(value: str) -> str:
@@ -130,7 +132,13 @@ def build_wake_frame(interface_mac: bytes, target_mac: bytes) -> bytes:
     return BROADCAST_MAC + interface_mac + ether_type + build_magic_payload(target_mac)
 
 
-def wake_device(interface: str, mac: str, dry_run: bool) -> dict:
+def wake_device(
+    interface: str,
+    mac: str,
+    dry_run: bool,
+    wake_helper: str | None,
+    sudo_helper: bool,
+) -> dict:
     normalized_mac = normalize_mac(mac)
     target_mac = mac_to_bytes(normalized_mac)
     source_mac_note = None
@@ -149,6 +157,8 @@ def wake_device(interface: str, mac: str, dry_run: bool) -> dict:
         "action": "wake",
         "dry_run": dry_run,
         "interface": interface,
+        "wake_helper": str(Path(wake_helper).expanduser().resolve()) if wake_helper else str(DEFAULT_WAKE_HELPER),
+        "sudo_helper": sudo_helper,
         "source_mac": source_mac.hex(":").upper(),
         "target_mac": normalized_mac,
         "ethertype": f"0x{ETH_P_WOL:04X}",
@@ -161,12 +171,34 @@ def wake_device(interface: str, mac: str, dry_run: bool) -> dict:
     if dry_run:
         return result
 
-    try:
-        with socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(ETH_P_WOL)) as sock:
-            sock.bind((interface, 0))
-            sock.send(frame)
-    except PermissionError as exc:
-        raise RuntimeError("wake requires root or CAP_NET_RAW") from exc
+    helper_path = Path(wake_helper).expanduser().resolve() if wake_helper else DEFAULT_WAKE_HELPER
+    if not helper_path.exists():
+        raise RuntimeError(
+            f"wake helper not found: {helper_path}. Build it first with build_wake_helper.sh"
+        )
+
+    helper_cmd = [
+        str(helper_path),
+        "--interface",
+        interface,
+        "--frame-hex",
+        frame.hex(),
+    ]
+    if sudo_helper:
+        helper_cmd = ["sudo", "-n"] + helper_cmd
+
+    completed = subprocess.run(
+        helper_cmd,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        error_text = (completed.stderr or completed.stdout).strip()
+        raise RuntimeError(
+            error_text
+            or "wake helper failed; ensure it has CAP_NET_RAW or use --sudo-helper with passwordless sudo"
+        )
 
     result["sent"] = True
     return result
@@ -251,6 +283,15 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Build and print the wake frame details without sending anything.",
     )
+    wake_parser.add_argument(
+        "--wake-helper",
+        help=f"Path to the privileged wake helper. Default: {DEFAULT_WAKE_HELPER}.",
+    )
+    wake_parser.add_argument(
+        "--sudo-helper",
+        action="store_true",
+        help="Run the wake helper via 'sudo -n' instead of relying on CAP_NET_RAW.",
+    )
     wake_parser.add_argument("--device", help="Device name from the inventory file.")
     wake_parser.add_argument("--device-file", help=f"Inventory JSON file. Default: {DEFAULT_DEVICE_FILE}.")
     wake_parser.add_argument("--interface", help="Interface name, such as eth0 or br-lan.")
@@ -314,6 +355,8 @@ def main(argv: list[str]) -> int:
                 interface=interface,
                 mac=mac,
                 dry_run=args.dry_run,
+                wake_helper=args.wake_helper,
+                sudo_helper=args.sudo_helper,
             )
             if args.device:
                 result["device"] = args.device

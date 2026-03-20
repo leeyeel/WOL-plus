@@ -12,3 +12,4 @@ ipk-build/
 po2lmo
 *.MD
 client/src/backend
+__pycache__
