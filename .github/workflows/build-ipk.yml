@@ -55,13 +55,17 @@ jobs:
         with:
           name: luci-app-wolp-ipk
           path: release/*.ipk
+          if-no-files-found: error
           retention-days: 30
 
       - name: Create Release (on tag)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          files: release/*.ipk
+          files: |
+            release/luci-app-wolp_*.ipk
+            release/luci-i18n-wolp-zh-cn_*.ipk
+          overwrite_files: true
           draft: false
           prerelease: false
         env:
