@@ -221,96 +221,35 @@ Client 端重点配置项：
 
 - `skill/wolp-lan-power-control`
 
-它适合以下场景：
+目前该 skill 已上架 OpenClaw，其他 agent 可通过手动拷贝目录的方式安装。
 
-- 从命令行快速发送唤醒包
-- 从命令行快速发送 WOL-plus 关机包
-- 在 agent/自动化环境中复用设备清单
-
-skill 入口脚本：
-
-- `skill/wolp-lan-power-control/scripts/wolp_power.py`
-
-设备清单文件：
-
-- `skill/wolp-lan-power-control/assets/devices.json`
-
-### 安装依赖
-
-`wake` 子命令依赖 `wakeonlan`：
+### OpenClaw 安装
 
 ```bash
-python3 -m pip install wakeonlan
+npx clawhub@latest install wolp-lan-power-control
 ```
 
-### 直接使用命令
+安装完成后，OpenClaw 就可以识别并使用该 skill。
 
-查看设备清单：
+### Claude Code 安装
+
+当前 Claude Code 暂未提供商店安装入口，可直接将仓库中的 skill 目录拷贝到 Claude Code 的 `skills` 目录中：
 
 ```bash
-python3 skill/wolp-lan-power-control/scripts/wolp_power.py list
+cp -r skill/wolp-lan-power-control <your-claude-skills-dir>/
 ```
 
-发送唤醒包：
+拷贝完成后，重新加载或重启 Claude Code 即可。
+
+### Codex CLI 安装
+
+当前 Codex CLI 也需要手动安装，可将同一个 skill 目录拷贝到 Codex CLI 的 `skills` 目录中：
 
 ```bash
-python3 skill/wolp-lan-power-control/scripts/wolp_power.py wake --mac AA:BB:CC:DD:EE:FF
+cp -r skill/wolp-lan-power-control <your-codex-skills-dir>/
 ```
 
-指定广播地址发送唤醒包：
-
-```bash
-python3 skill/wolp-lan-power-control/scripts/wolp_power.py wake --mac AA:BB:CC:DD:EE:FF --broadcast-ip 192.168.1.255 --port 9
-```
-
-发送关机包：
-
-```bash
-python3 skill/wolp-lan-power-control/scripts/wolp_power.py shutdown --host 192.168.1.50 --mac AA:BB:CC:DD:EE:FF --extra-data FF:FF:FF:FF:FF:FF --port 9
-```
-
-仅预览、不实际发送：
-
-```bash
-python3 skill/wolp-lan-power-control/scripts/wolp_power.py wake --mac AA:BB:CC:DD:EE:FF --dry-run
-python3 skill/wolp-lan-power-control/scripts/wolp_power.py shutdown --host 192.168.1.50 --mac AA:BB:CC:DD:EE:FF --dry-run
-```
-
-### 使用设备清单
-
-`devices.json` 里可以保存常用设备，例如：
-
-```json
-{
-  "defaults": {
-    "broadcast_ip": "255.255.255.255",
-    "port": 9,
-    "extra_data": "FF:FF:FF:FF:FF:FF"
-  },
-  "devices": {
-    "nas": {
-      "mac": "AA:BB:CC:DD:EE:FF",
-      "host": "192.168.1.50",
-      "broadcast_ip": "192.168.1.255",
-      "last_action": "wake",
-      "last_success_at": "2026-03-21T00:00:00Z"
-    }
-  }
-}
-```
-
-实际发送成功后，脚本也会自动把当前解析出的设备信息写回 `devices.json`：
-
-- 指定了 `--device <name>` 时，更新对应条目
-- 未指定 `--device` 时，优先按相同 MAC 复用已有条目；否则自动创建 `device-<mac>` 条目
-- 同一设备多次 `wake/shutdown` 会持续刷新该设备的最新字段和成功时间
-
-然后就可以直接按名称发送：
-
-```bash
-python3 skill/wolp-lan-power-control/scripts/wolp_power.py wake --device nas
-python3 skill/wolp-lan-power-control/scripts/wolp_power.py shutdown --device nas
-```
+拷贝完成后，重新启动 Codex CLI 即可生效。
 
 ## 工作原理
 
