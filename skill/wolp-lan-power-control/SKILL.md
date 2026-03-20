@@ -9,22 +9,21 @@ Use this skill when the user wants the agent to control a device on the local ne
 
 Supported operations:
 
-- `wake`: send a raw Ethernet magic packet on a specific interface
+- `wake`: send a standard UDP Wake-on-LAN magic packet with Python
 - `shutdown`: send a UDP magic packet to a target IPv4 address
 - `list`: print the resolved device inventory
 
 Use the bundled Python script:
 
 - `scripts/wolp_power.py`
-- `scripts/build_wake_helper.sh`
-- `scripts/wolp_wake_helper.c`
 - `devices.json`
 
 Required inputs:
 
 - Wake:
   - target MAC address
-  - local interface name, such as `eth0` or `br-lan`
+  - optional broadcast IPv4 address, default `255.255.255.255`
+  - optional UDP port, default `9`
 - Shutdown:
   - target MAC address
   - target IPv4 address
@@ -34,24 +33,14 @@ Required inputs:
 Constraints:
 
 - `shutdown` uses a normal UDP socket and does not require `root`.
-- `wake` uses a separate raw-frame helper on Linux. Only the helper needs `root` or `CAP_NET_RAW`.
-- Build the helper once:
-- Preferred setup uses `setcap`:
+- `wake` uses the Python package `wakeonlan` and does not require a compiled helper.
+- Install the dependency before sending wake packets:
 
 ```bash
-bash skill/wolp-lan-power-control/scripts/build_wake_helper.sh
-sudo setcap cap_net_raw+ep skill/wolp-lan-power-control/scripts/wolp_wake_helper
+python3 -m pip install wakeonlan
 ```
 
-- If `setcap` is not available, use `--sudo-helper` so only the helper runs with `sudo`:
-
-```bash
-python3 skill/wolp-lan-power-control/scripts/wolp_power.py wake --device nas --sudo-helper
-```
-
-- `--sudo-helper` calls `sudo -n`, so configure passwordless sudo for the helper path if you want non-interactive agent execution.
-- Do not run the whole Python script as `root` unless necessary.
-- The Python script delegates `wake` to `wolp_wake_helper`, so the main script can remain unprivileged.
+- The `wake` subcommand will print a clear error if `wakeonlan` is missing.
 - `shutdown` requires IP connectivity to the target host and a compatible WOL-plus listener on the target machine.
 - Packet send confirms only local transmission, not that the remote machine actually changed power state.
 
@@ -64,19 +53,19 @@ Device inventory:
 ```json
 {
   "defaults": {
-    "interface": "br-lan",
+    "broadcast_ip": "255.255.255.255",
     "port": 9,
     "extra_data": "FF:FF:FF:FF:FF:FF"
   },
   "devices": {
     "nas": {
       "mac": "AA:BB:CC:DD:EE:FF",
-      "host": "192.168.1.50"
+      "host": "192.168.1.50",
+      "broadcast_ip": "192.168.1.255"
     },
     "desktop": {
       "mac": "11:22:33:44:55:66",
       "host": "192.168.1.60",
-      "interface": "eth0",
       "extra_data": "12:34:56:78:9A:BC",
       "port": 9
     }
@@ -90,12 +79,11 @@ Device inventory:
 Preferred commands:
 
 ```bash
-bash skill/wolp-lan-power-control/scripts/build_wake_helper.sh
 python3 skill/wolp-lan-power-control/scripts/wolp_power.py list
 python3 skill/wolp-lan-power-control/scripts/wolp_power.py wake --device nas
-python3 skill/wolp-lan-power-control/scripts/wolp_power.py wake --device nas --sudo-helper
 python3 skill/wolp-lan-power-control/scripts/wolp_power.py shutdown --device nas
-python3 skill/wolp-lan-power-control/scripts/wolp_power.py wake --interface br-lan --mac AA:BB:CC:DD:EE:FF
+python3 skill/wolp-lan-power-control/scripts/wolp_power.py wake --mac AA:BB:CC:DD:EE:FF
+python3 skill/wolp-lan-power-control/scripts/wolp_power.py wake --mac AA:BB:CC:DD:EE:FF --broadcast-ip 192.168.1.255 --port 9
 python3 skill/wolp-lan-power-control/scripts/wolp_power.py shutdown --host 192.168.1.50 --mac AA:BB:CC:DD:EE:FF --extra-data FF:FF:FF:FF:FF:FF --port 9
 ```
 
@@ -143,8 +131,8 @@ sudo systemctl status wolp.service
 
 When reporting results or performing installs:
 
-- echo the resolved interface, host, UDP port, and normalized MAC values
-- for wake, report which helper path is being used
+- echo the resolved broadcast IP, host, UDP port, and normalized MAC values
+- for wake, report that the packet is sent through the `wakeonlan` Python package
 - state clearly whether the script performed a real send or a dry run
-- if the user did not provide enough data, ask only for the missing interface, MAC, or target IPv4 address
+- if the user did not provide enough data, ask only for the missing MAC, target IPv4 address, or wake broadcast IP when needed
 - if you install the client, report the package path, config path, and the exact `extra_data` and `udp_port` values you configured

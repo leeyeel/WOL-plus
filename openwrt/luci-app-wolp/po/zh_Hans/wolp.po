@@ -45,7 +45,7 @@ msgid "Additional Data"
 msgstr "附加数据"
 
 msgid "Enter 6-byte custom data (XX:XX:XX:XX:XX:XX).<br />If not specified for shutdown, defaults to FF:FF:FF:FF:FF:FF."
-msgstr "输入6字节自定义数据（XX:XX:XX:XX:XX:XX）。<br />关机时如未指定，默认为FF:FF:FF:FF:FF:FF。"
+msgstr "输入 6 字节自定义数据（XX:XX:XX:XX:XX:XX）。<br />若用于关机时未指定，则默认为 FF:FF:FF:FF:FF:FF。"
 
 # 表单字段 - 广播
 msgid "Send to broadcast address"

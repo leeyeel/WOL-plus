@@ -4,25 +4,15 @@ import argparse
 import ipaddress
 import json
 import socket
-import struct
-import subprocess
 import sys
 from pathlib import Path
 
-try:
-    import fcntl
-except ImportError as exc:  # pragma: no cover - Linux-only path
-    raise SystemExit(f"fcntl is required on this platform: {exc}")
 
-
-ETH_P_WOL = 0x0842
-IFNAMSIZ = 16
-SIOCGIFHWADDR = 0x8927
 DEFAULT_EXTRA_DATA = "FF:FF:FF:FF:FF:FF"
 DEFAULT_UDP_PORT = 9
-BROADCAST_MAC = b"\xff" * 6
+DEFAULT_WAKE_IP = "255.255.255.255"
+SYNC_BYTES = b"\xff" * 6
 DEFAULT_DEVICE_FILE = Path(__file__).resolve().parent.parent / "devices.json"
-DEFAULT_WAKE_HELPER = Path(__file__).resolve().with_name("wolp_wake_helper")
 
 
 def normalize_mac(value: str) -> str:
@@ -110,96 +100,48 @@ def prefer(cli_value, inventory_value, fallback=None):
     return fallback
 
 
-def get_interface_mac(interface: str) -> bytes:
-    request = struct.pack("256s", interface.encode("utf-8")[: IFNAMSIZ - 1])
-
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        response = fcntl.ioctl(sock.fileno(), SIOCGIFHWADDR, request)
-
-    return response[18:24]
-
-
 def build_magic_payload(mac_bytes: bytes) -> bytes:
-    return BROADCAST_MAC + (mac_bytes * 16)
+    return SYNC_BYTES + (mac_bytes * 16)
 
 
 def build_shutdown_payload(mac_bytes: bytes, extra_bytes: bytes) -> bytes:
     return build_magic_payload(mac_bytes) + extra_bytes
 
 
-def build_wake_frame(interface_mac: bytes, target_mac: bytes) -> bytes:
-    ether_type = struct.pack("!H", ETH_P_WOL)
-    return BROADCAST_MAC + interface_mac + ether_type + build_magic_payload(target_mac)
-
-
-def wake_device(
-    interface: str,
-    mac: str,
-    dry_run: bool,
-    wake_helper: str | None,
-    sudo_helper: bool,
-) -> dict:
-    normalized_mac = normalize_mac(mac)
-    target_mac = mac_to_bytes(normalized_mac)
-    source_mac_note = None
-
+def get_wake_sender():
     try:
-        source_mac = get_interface_mac(interface)
-    except OSError:
-        if not dry_run:
-            raise
-        source_mac = b"\x00" * 6
-        source_mac_note = "interface lookup failed during dry run; using 00:00:00:00:00:00"
+        from wakeonlan import send_magic_packet
+    except ImportError as exc:
+        raise RuntimeError(
+            "wake action requires the 'wakeonlan' package. Install it with: python3 -m pip install wakeonlan"
+        ) from exc
 
-    frame = build_wake_frame(source_mac, target_mac)
+    return send_magic_packet
+
+
+def wake_device(broadcast_ip: str, mac: str, port: int, dry_run: bool) -> dict:
+    normalized_ip = normalize_host(broadcast_ip)
+    normalized_mac = normalize_mac(mac)
+    normalized_port = normalize_port(port)
+    payload = build_magic_payload(mac_to_bytes(normalized_mac))
 
     result = {
         "action": "wake",
         "dry_run": dry_run,
-        "interface": interface,
-        "wake_helper": str(Path(wake_helper).expanduser().resolve()) if wake_helper else str(DEFAULT_WAKE_HELPER),
-        "sudo_helper": sudo_helper,
-        "source_mac": source_mac.hex(":").upper(),
+        "broadcast_ip": normalized_ip,
+        "port": normalized_port,
         "target_mac": normalized_mac,
-        "ethertype": f"0x{ETH_P_WOL:04X}",
-        "frame_length": len(frame),
-        "frame_hex": frame.hex(),
+        "payload_length": len(payload),
+        "payload_hex": payload.hex(),
+        "transport": "udp-broadcast",
+        "library": "wakeonlan",
     }
-    if source_mac_note:
-        result["source_mac_note"] = source_mac_note
 
     if dry_run:
         return result
 
-    helper_path = Path(wake_helper).expanduser().resolve() if wake_helper else DEFAULT_WAKE_HELPER
-    if not helper_path.exists():
-        raise RuntimeError(
-            f"wake helper not found: {helper_path}. Build it first with build_wake_helper.sh"
-        )
-
-    helper_cmd = [
-        str(helper_path),
-        "--interface",
-        interface,
-        "--frame-hex",
-        frame.hex(),
-    ]
-    if sudo_helper:
-        helper_cmd = ["sudo", "-n"] + helper_cmd
-
-    completed = subprocess.run(
-        helper_cmd,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if completed.returncode != 0:
-        error_text = (completed.stderr or completed.stdout).strip()
-        raise RuntimeError(
-            error_text
-            or "wake helper failed; ensure it has CAP_NET_RAW or use --sudo-helper with passwordless sudo"
-        )
-
+    send_magic_packet = get_wake_sender()
+    send_magic_packet(normalized_mac, ip_address=normalized_ip, port=normalized_port)
     result["sent"] = True
     return result
 
@@ -242,12 +184,24 @@ def list_devices(device_file: str | None) -> dict:
     defaults = inventory.get("defaults", {})
     devices = inventory.get("devices", {})
 
+    resolved_defaults = dict(defaults)
+    if "mac" in resolved_defaults and resolved_defaults["mac"] is not None:
+        resolved_defaults["mac"] = normalize_mac(str(resolved_defaults["mac"]))
+    if "extra_data" in resolved_defaults and resolved_defaults["extra_data"] is not None:
+        resolved_defaults["extra_data"] = normalize_mac(str(resolved_defaults["extra_data"]))
+    if "host" in resolved_defaults and resolved_defaults["host"] is not None:
+        resolved_defaults["host"] = normalize_host(str(resolved_defaults["host"]))
+    if "broadcast_ip" in resolved_defaults and resolved_defaults["broadcast_ip"] is not None:
+        resolved_defaults["broadcast_ip"] = normalize_host(str(resolved_defaults["broadcast_ip"]))
+    if "port" in resolved_defaults and resolved_defaults["port"] is not None:
+        resolved_defaults["port"] = normalize_port(int(resolved_defaults["port"]))
+
     resolved_devices = {}
     for name, entry in devices.items():
         if not isinstance(entry, dict):
             raise ValueError(f"device entry for {name!r} must be an object")
 
-        resolved = dict(defaults)
+        resolved = dict(resolved_defaults)
         resolved.update(entry)
         if "mac" in resolved and resolved["mac"] is not None:
             resolved["mac"] = normalize_mac(str(resolved["mac"]))
@@ -255,6 +209,8 @@ def list_devices(device_file: str | None) -> dict:
             resolved["extra_data"] = normalize_mac(str(resolved["extra_data"]))
         if "host" in resolved and resolved["host"] is not None:
             resolved["host"] = normalize_host(str(resolved["host"]))
+        if "broadcast_ip" in resolved and resolved["broadcast_ip"] is not None:
+            resolved["broadcast_ip"] = normalize_host(str(resolved["broadcast_ip"]))
         if "port" in resolved and resolved["port"] is not None:
             resolved["port"] = normalize_port(int(resolved["port"]))
 
@@ -263,7 +219,7 @@ def list_devices(device_file: str | None) -> dict:
     return {
         "action": "list",
         "device_file": str(path),
-        "defaults": defaults,
+        "defaults": resolved_defaults,
         "devices": resolved_devices,
     }
 
@@ -276,26 +232,27 @@ def build_parser() -> argparse.ArgumentParser:
 
     wake_parser = subparsers.add_parser(
         "wake",
-        help="Send a raw Ethernet magic packet on a specific interface.",
+        help="Send a WOL magic packet with the wakeonlan Python library.",
     )
     wake_parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Build and print the wake frame details without sending anything.",
-    )
-    wake_parser.add_argument(
-        "--wake-helper",
-        help=f"Path to the privileged wake helper. Default: {DEFAULT_WAKE_HELPER}.",
-    )
-    wake_parser.add_argument(
-        "--sudo-helper",
-        action="store_true",
-        help="Run the wake helper via 'sudo -n' instead of relying on CAP_NET_RAW.",
+        help="Build and print the wake payload details without sending anything.",
     )
     wake_parser.add_argument("--device", help="Device name from the inventory file.")
     wake_parser.add_argument("--device-file", help=f"Inventory JSON file. Default: {DEFAULT_DEVICE_FILE}.")
-    wake_parser.add_argument("--interface", help="Interface name, such as eth0 or br-lan.")
     wake_parser.add_argument("--mac", help="Target device MAC address.")
+    wake_parser.add_argument(
+        "--broadcast-ip",
+        default=None,
+        help=f"Broadcast IPv4 address for wake. Default: {DEFAULT_WAKE_IP}.",
+    )
+    wake_parser.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help=f"UDP port for the wake packet. Default: {DEFAULT_UDP_PORT}.",
+    )
 
     shutdown_parser = subparsers.add_parser(
         "shutdown",
@@ -344,19 +301,18 @@ def main(argv: list[str]) -> int:
             if args.device:
                 device_entry, device_file = resolve_device_entry(args.device, args.device_file)
 
-            interface = prefer(args.interface, device_entry.get("interface"))
             mac = prefer(args.mac, device_entry.get("mac"))
-            if not interface:
-                raise ValueError("wake requires --interface or an inventory entry with interface")
+            broadcast_ip = prefer(args.broadcast_ip, device_entry.get("broadcast_ip"), DEFAULT_WAKE_IP)
+            port = prefer(args.port, device_entry.get("port"), DEFAULT_UDP_PORT)
+
             if not mac:
                 raise ValueError("wake requires --mac or an inventory entry with mac")
 
             result = wake_device(
-                interface=interface,
+                broadcast_ip=broadcast_ip,
                 mac=mac,
+                port=int(port),
                 dry_run=args.dry_run,
-                wake_helper=args.wake_helper,
-                sudo_helper=args.sudo_helper,
             )
             if args.device:
                 result["device"] = args.device

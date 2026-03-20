@@ -44,8 +44,8 @@ msgstr "選擇要控制的主機，或輸入自訂MAC位址"
 msgid "Additional Data"
 msgstr "附加資料"
 
-msgid "Enter 6-byte custom data (XX:XX:XX:XX:XX:XX). Required for shutdown operation."
-msgstr "輸入6位元組自訂資料（XX:XX:XX:XX:XX:XX）。關機操作必需。"
+msgid "Enter 6-byte custom data (XX:XX:XX:XX:XX:XX).<br />If not specified for shutdown, defaults to FF:FF:FF:FF:FF:FF."
+msgstr "輸入 6 位元組自訂資料（XX:XX:XX:XX:XX:XX）。<br />若用於關機時未指定，則預設為 FF:FF:FF:FF:FF:FF。"
 
 # 表單欄位 - 廣播
 msgid "Send to broadcast address"

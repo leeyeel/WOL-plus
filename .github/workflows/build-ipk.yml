@@ -63,8 +63,10 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            release/luci-app-wolp_*.ipk
-            release/luci-i18n-wolp-zh-cn_*.ipk
+            release/luci-app-wolp_${{ steps.get_version.outputs.version }}_x86_64.ipk
+            release/luci-app-wolp_${{ steps.get_version.outputs.version }}_aarch64_generic.ipk
+            release/luci-i18n-wolp-zh-cn_${{ steps.get_version.outputs.version }}_x86_64.ipk
+            release/luci-i18n-wolp-zh-cn_${{ steps.get_version.outputs.version }}_aarch64_generic.ipk
           overwrite_files: true
           draft: false
           prerelease: false

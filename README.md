@@ -1,233 +1,324 @@
 # Wake On LAN Plus
 
-> 通过 WOL Magic Packet 实现远程唤醒和关机。
-> 通常 Wake On LAN用于网络唤醒设备，WOL-Plus则增加了关机功能。
+> 通过标准 Wake-on-LAN 唤醒设备，并通过带 6 字节附加数据的 WOL-plus 数据包远程关机。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## 功能特性
+Wake On LAN Plus 由两部分组成：
 
-- **远程唤醒**: 发送 WOL Magic Packet 唤醒局域网内设备
-- **远程关机**: 接收带有 6 字节附加数据的 WOL Magic Packet 实现关机
-- **Web UI**: 服务端提供美观的 Web 配置界面，支持认证
-- **倒计时关机**: 支持配置关机倒计时时长，可取消正在进行的关机任务
-- **多平台支持**:
-  - OpenWrt 路由器端（发送端，x86_64、aarch64）
-  - Windows 桌面端（接收端 + WebUI，amd64、arm64）
-  - Debian/Ubuntu Linux 端（接收端 + WebUI，amd64、arm64）
+- OpenWrt 端：发送端，集成到 LuCI，用来发送唤醒包和关机包
+- Client 端：接收端，运行在 Windows 或 Linux 上，接收关机包并提供 Web UI 配置页面
+
+如果你只想尽快用起来，建议按这个顺序：
+
+1. 从 [Releases](https://github.com/leeyeel/WOL-plus/releases) 下载 OpenWrt 端和 Client 端安装包
+2. 在目标电脑上先安装 Client 端
+3. 打开 Client Web UI，设置 `extra_data`、UDP 端口和关机倒计时
+4. 在 OpenWrt 的 LuCI 页面里填入同样的 `extra_data` 和目标设备 MAC
+5. 测试唤醒和关机
+
+## 适用场景
+
+- 唤醒局域网内支持 WOL 的设备
+- 通过 OpenWrt 路由器统一发送唤醒/关机命令
+- 在 Windows、Debian/Ubuntu、RPM 系 Linux 上部署接收端
+- 使用仓库内 skill 从命令行或 agent 环境发送唤醒/关机包
 
 ## 界面预览
 
-### OpenWrt 端 (LuCI - 发送端)
+### OpenWrt 端
 
 ![Wake On LAN+](openwrt/wolp.png)
 
-### Windows 端 (WebUI - 接收端)
+### Client 端 Web UI
 
 ![WOLP Server](client/wolp-client.jpg)
 
-## 快速开始
+## Releases 下载说明
 
-### OpenWrt 端安装（发送端）
+所有可直接安装的产物都在 [Releases](https://github.com/leeyeel/WOL-plus/releases) 页面提供下载。
 
-**重要**: 如果您的 OpenWrt 中已经安装了官方的 `luci-app-wol`，请先卸载：
+常见文件名如下：
+
+- OpenWrt 主包：
+  - `luci-app-wolp_<version>_x86_64.ipk`
+  - `luci-app-wolp_<version>_aarch64_generic.ipk`
+- OpenWrt 简体中文包：
+  - `luci-i18n-wolp-zh-cn_<version>_x86_64.ipk`
+  - `luci-i18n-wolp-zh-cn_<version>_aarch64_generic.ipk`
+- Windows Client：
+  - `installer_windows_amd64_v<version>.exe`
+- Debian/Ubuntu Client：
+  - `wolp-client_<version>_amd64.deb`
+  - `wolp-client_<version>_arm64.deb`
+- RPM Client：
+  - `wolp-client-<version>-1.x86_64.rpm`
+  - `wolp-client-<version>-1.aarch64.rpm`
+
+## OpenWrt 端安装与使用
+
+OpenWrt 端是发送端，安装后会出现在 LuCI 的“服务”菜单中。
+
+### 安装
+
+如果系统里已经装了官方 `luci-app-wol`，建议先卸载，避免菜单和功能冲突：
 
 ```bash
 opkg remove luci-app-wol
 ```
 
-#### 方法一：使用 IPK 包安装（推荐）
-
-从 [Releases](https://github.com/leeyeel/WOL-plus/releases) 下载对应架构的 IPK 包：
+下载与你设备架构对应的 IPK 包后，上传到路由器并安装：
 
 ```bash
-# x86_64 架构
-wget https://github.com/leeyeel/WOL-plus/releases/download/v*/luci-app-wolp_*_x86_64.ipk
+scp luci-app-wolp_<version>_<arch>.ipk root@<openwrt-ip>:/tmp/
+scp luci-i18n-wolp-zh-cn_<version>_<arch>.ipk root@<openwrt-ip>:/tmp/
 
-# aarch64 架构
-wget https://github.com/leeyeel/WOL-plus/releases/download/v*/luci-app-wolp_*_aarch64.ipk
-
-# 上传到 OpenWrt
-scp luci-app-wolp_*.ipk root@<openwrt-ip>:/tmp/
-
-# 登录 OpenWrt 安装
 ssh root@<openwrt-ip>
-
-# 先安装依赖
 opkg update
-opkg install etherwake
-
-# 安装 IPK 包
-opkg install /tmp/luci-app-wolp_*.ipk
+opkg install /tmp/luci-app-wolp_<version>_<arch>.ipk
+opkg install /tmp/luci-i18n-wolp-zh-cn_<version>_<arch>.ipk
 ```
 
-安装完成后，访问 LuCI 界面 → 服务 → Wake on LAN+
+也可以直接通过LuCI安装软件包:
 
-#### 方法二：手动安装
-
-```bash
-# 1. 拷贝 LuCI JavaScript 文件
-scp openwrt/wol.js root@<openwrt-ip>:/www/luci-static/resources/view/
-
-# 2. 拷贝中文翻译
-scp openwrt/wol.zh-cn.lmo root@<openwrt-ip>:/usr/lib/lua/luci/i18n/
+```
+系统-> 软件包 -> 更新列表 -> 上传软件包
 ```
 
-### Windows 端安装（接收端 + WebUI）
+安装完成后，在 LuCI 中进入：
 
-从 [Releases](https://github.com/leeyeel/WOL-plus/releases) 下载安装包（如 `installer_windows_amd64_v0.0.5.exe`）：
+`服务 -> Wake on LAN+`
 
-1. 下载后直接运行安装程序
+### 使用
+
+在 OpenWrt 页面中主要需要填写：
+
+- 目标设备 MAC 地址
+- 关机附加数据 `extra_data`
+- 关机 UDP 端口，默认 `9`
+
+说明：
+
+- 唤醒使用标准 WOL Magic Packet
+- 关机使用 WOL-plus 包，格式为 `FF*6 + MAC*16 + extra_data(6字节)`
+- `extra_data` 必须与 Client 端配置完全一致
+
+## Client 端安装与使用
+
+Client 端负责接收关机包，并提供 Web UI 配置页面。
+
+默认 Web UI 地址：
+
+- `http://<client-ip>:2025`
+
+默认登录信息：
+
+- 用户名：`admin`
+- 密码：`admin123`
+
+首次登录后建议立即修改密码。
+
+### Windows 安装
+
+从 Releases 下载：
+
+- `installer_windows_amd64_v<version>.exe`
+
+安装步骤：
+
+1. 直接运行安装程序
 2. 安装完成后服务会自动启动
-3. 访问 `http://<本机-ip>:2025` 进行配置
+3. 浏览器访问 `http://<windows-ip>:2025`
 
-### Debian/Ubuntu 安装（接收端 + WebUI）
+### Debian / Ubuntu 安装
 
-从 [Releases](https://github.com/leeyeel/WOL-plus/releases) 下载对应架构的 `.deb` 包（如 `wolp-client_0.0.5_amd64.deb`）：
+从 Releases 下载对应架构的 `.deb` 包后安装：
 
 ```bash
-sudo dpkg -i wolp-client_0.0.5_amd64.deb
+sudo dpkg -i wolp-client_<version>_amd64.deb
 sudo systemctl status wolp.service
 ```
 
-安装后：
+### RPM 系 Linux 安装
 
-1. 配置文件位于 `/usr/local/etc/wolp/wolp.json`
-2. Web UI 位于 `/usr/share/wolp/webui`
-3. 服务监听 `http://<linux-ip>:2025`
-
-### RPM 系发行版安装（接收端 + WebUI）
-
-从 [Releases](https://github.com/leeyeel/WOL-plus/releases) 下载对应架构的 `.rpm` 包（如 `wolp-client-0.0.5-1.x86_64.rpm`）：
+从 Releases 下载对应架构的 `.rpm` 包后安装：
 
 ```bash
-sudo rpm -ivh wolp-client-0.0.5-1.x86_64.rpm
+sudo rpm -ivh wolp-client-<version>-1.x86_64.rpm
 sudo systemctl status wolp.service
 ```
 
-安装后：
+### Linux 安装后的文件位置
 
-1. 配置文件位于 `/usr/local/etc/wolp/wolp.json`
-2. Web UI 位于 `/usr/share/wolp/webui`
-3. 服务监听 `http://<linux-ip>:2025`
+Linux Client 默认路径如下：
 
-### 使用说明
+- 可执行文件：`/usr/local/bin/wolp`
+- 配置文件：`/usr/local/etc/wolp/wolp.json`
+- Web UI：`/usr/share/wolp/webui`
+- systemd 服务：`wolp.service`
 
-**默认端口**: `2025`
+### Client 端 Web UI 配置
 
-**默认凭据**: `admin` / `admin123`（请登录后立即修改）
+Client 端重点配置项：
 
-#### OpenWrt 端配置（发送端）
+- `extra_data`
+  - 必须与 OpenWrt 端保持一致
+- `udp_port`
+  - 默认 `9`
+  - 必须与 OpenWrt 端保持一致
+- `shutdown_delay`
+  - 收到合法关机包后延迟多少秒执行关机
+- `username` / `password`
+  - Web UI 登录凭据
 
-1. 在 LuCI 界面配置目标设备的 MAC 地址
-2. 附加数据填写 **6 字节**十六进制（如 `AA:BB:CC:DD:EE:FF`）
-3. 点击"发送"按钮
+仓库里的默认配置值是：
 
-#### Windows 端 WebUI（接收端）
+- `extra_data = FF:FF:FF:FF:FF:FF`
+- `udp_port = 9`
+- `shutdown_delay = 60`
 
-1. 访问 `http://<windows-ip>:2025`
-2. 使用默认凭据登录
-3. 配置附加数据（需与 OpenWrt 端配置一致）
-4. 如有需要，修改关机 UDP 端口（默认 `9`）
-5. 配置关机倒计时时长
-6. 可取消正在进行的关机任务
+## 推荐使用流程
+
+### 1. 先安装 Client 端
+
+先在目标电脑上安装 Windows、Debian/Ubuntu 或 RPM 包。
+
+### 2. 打开 Client Web UI
+
+访问：
+
+- `http://<client-ip>:2025`
+
+记录并确认这些值：
+
+- 目标设备 MAC 地址
+- `extra_data`
+- `udp_port`
+
+### 3. 在 OpenWrt 端填写同样的参数
+
+在 LuCI 页面中配置：
+
+- 目标 MAC 地址
+- `extra_data`
+- `udp_port`
+
+### 4. 测试唤醒和关机
+
+建议先测试唤醒，再测试关机。
+
+如果关机没有生效，优先检查：
+
+- OpenWrt 和目标机器是否互通
+- Client 端服务是否运行正常
+- `extra_data` 是否完全一致
+- `udp_port` 是否完全一致
+- 目标机器防火墙是否拦截 UDP
+
+## Skill 使用
+
+仓库内提供了一个 skill：
+
+- `skill/wolp-lan-power-control`
+
+它适合以下场景：
+
+- 从命令行快速发送唤醒包
+- 从命令行快速发送 WOL-plus 关机包
+- 在 agent/自动化环境中复用设备清单
+
+skill 入口脚本：
+
+- `skill/wolp-lan-power-control/scripts/wolp_power.py`
+
+设备清单文件：
+
+- `skill/wolp-lan-power-control/devices.json`
+
+### 安装依赖
+
+`wake` 子命令依赖 `wakeonlan`：
+
+```bash
+python3 -m pip install wakeonlan
+```
+
+### 直接使用命令
+
+查看设备清单：
+
+```bash
+python3 skill/wolp-lan-power-control/scripts/wolp_power.py list
+```
+
+发送唤醒包：
+
+```bash
+python3 skill/wolp-lan-power-control/scripts/wolp_power.py wake --mac AA:BB:CC:DD:EE:FF
+```
+
+指定广播地址发送唤醒包：
+
+```bash
+python3 skill/wolp-lan-power-control/scripts/wolp_power.py wake --mac AA:BB:CC:DD:EE:FF --broadcast-ip 192.168.1.255 --port 9
+```
+
+发送关机包：
+
+```bash
+python3 skill/wolp-lan-power-control/scripts/wolp_power.py shutdown --host 192.168.1.50 --mac AA:BB:CC:DD:EE:FF --extra-data FF:FF:FF:FF:FF:FF --port 9
+```
+
+仅预览、不实际发送：
+
+```bash
+python3 skill/wolp-lan-power-control/scripts/wolp_power.py wake --mac AA:BB:CC:DD:EE:FF --dry-run
+python3 skill/wolp-lan-power-control/scripts/wolp_power.py shutdown --host 192.168.1.50 --mac AA:BB:CC:DD:EE:FF --dry-run
+```
+
+### 使用设备清单
+
+`devices.json` 里可以保存常用设备，例如：
+
+```json
+{
+  "defaults": {
+    "broadcast_ip": "255.255.255.255",
+    "port": 9,
+    "extra_data": "FF:FF:FF:FF:FF:FF"
+  },
+  "devices": {
+    "nas": {
+      "mac": "AA:BB:CC:DD:EE:FF",
+      "host": "192.168.1.50",
+      "broadcast_ip": "192.168.1.255"
+    }
+  }
+}
+```
+
+然后就可以直接按名称发送：
+
+```bash
+python3 skill/wolp-lan-power-control/scripts/wolp_power.py wake --device nas
+python3 skill/wolp-lan-power-control/scripts/wolp_power.py shutdown --device nas
+```
 
 ## 工作原理
 
-```
-┌─────────────────┐     WOL Magic Packet            ┌─────────────────┐
-│   OpenWrt 端    │ ─────────────────────────▶      │   Windows 端    │
-│  (LuCI Web UI)  │   附加数据: XX:XX:XX:XX:XX:XX   │   (Go 服务)     │
-│   发送端         │   (固定 6 字节)                 │   接收端 + WebUI │
-└─────────────────┘                                 └─────────────────┘
-```
+唤醒：
 
-当接收端接收到带有匹配附加数据的 UDP Magic Packet 时，触发倒计时关机。
+- OpenWrt 或 skill 发送标准 Wake-on-LAN Magic Packet
 
-## 开发指南
+关机：
 
-### 构建 IPK 包（OpenWrt 发送端）
-
-```bash
-cd openwrt
-chmod +x build-ipk.sh
-# 默认版本 1.0.0
-./build-ipk.sh
-# 指定版本号
-VERSION=0.0.5 ./build-ipk.sh
-```
-
-生成的 IPK 包位于 `release/` 目录（文件名包含版本号）：
-- `luci-app-wolp_1.0.0_x86_64.ipk`
-- `luci-app-wolp_1.0.0_aarch64.ipk`
-- 或 `luci-app-wolp_0.0.5_x86_64.ipk`（如果指定了版本）
-
-**注意**:
-- IPK 包使用 **tar.gz 格式**（OpenWrt opkg 兼容格式）
-- 架构名称使用 OpenWrt 标准命名：`x86_64`（而非 amd64）、`aarch64`（而非 arm64）
-- 与官方 `luci-app-wol` 包冲突，安装前需要先卸载
-
-### 构建 Windows 安装包（接收端）
-
-在 Windows 环境下执行：
-
-```powershell
-# 编译 amd64
-.\scripts\build.ps1 -Arch amd64 -Version 0.0.5
-
-# 打包（需要安装 Inno Setup）
-# amd64
-iscc /DVERSION=0.0.5 /DAPP_ARCH=amd64 .\scripts\windows_x86_64.iss
-
-```
-
-生成的安装包位于 `scripts\Output\` 目录（文件名包含版本号）：
-- `installer_windows_amd64_v0.0.5.exe`
-
-### 构建 Debian 包（接收端）
-
-在 Linux 环境下执行：
-
-```bash
-bash scripts/build-deb.sh amd64 0.0.5
-bash scripts/build-deb.sh arm64 0.0.5
-```
-
-生成的 Debian 包位于 `release/client/` 目录：
-- `wolp-client_0.0.5_amd64.deb`
-- `wolp-client_0.0.5_arm64.deb`
-
-### 构建 RPM 包（接收端）
-
-在 Linux 环境下执行：
-
-```bash
-bash scripts/build-rpm.sh amd64 0.0.5
-bash scripts/build-rpm.sh arm64 0.0.5
-```
-
-生成的 RPM 包位于 `release/client/` 目录：
-- `wolp-client-0.0.5-1.x86_64.rpm`
-- `wolp-client-0.0.5-1.aarch64.rpm`
-
-### GitHub Actions 自动构建
-
-项目配置了 CI/CD 自动构建，构建产物文件名包含 tag 版本号：
-
-- **IPK 包**: 推送到 main 分支或创建 tag 时自动构建
-  - Tag `v0.0.5` → `luci-app-wolp_0.0.5_x86_64.ipk`、`luci-app-wolp_0.0.5_aarch64.ipk`
-- **Windows 安装包**: 推送到 main、PR 或创建 tag 时自动构建
-  - Tag `v0.0.5` → `installer_windows_amd64_v0.0.5.exe`
-- **Debian 包**: 推送到 main、PR 或创建 tag 时自动构建
-  - Tag `v0.0.5` → `wolp-client_0.0.5_amd64.deb`、`wolp-client_0.0.5_arm64.deb`
-- **RPM 包**: 推送到 main、PR 或创建 tag 时自动构建
-  - Tag `v0.0.5` → `wolp-client-0.0.5-1.x86_64.rpm`、`wolp-client-0.0.5-1.aarch64.rpm`
+- OpenWrt 或 skill 发送带 6 字节 `extra_data` 的 WOL-plus UDP 包
+- Client 端收到后校验：
+  - 目标 MAC 是否匹配
+  - `extra_data` 是否匹配
+  - UDP 端口是否匹配
+- 校验通过后，Client 端进入关机倒计时
 
 ## 许可证
 
 [MIT License](LICENSE)
-
-## 致谢
-
-- [luci-app-wol](https://github.com/openwrt/luci) - OpenWrt 官方 WOL 应用，本项目基于其修改
-- [WinSW](https://github.com/winsw/winsw) - Windows 服务包装器

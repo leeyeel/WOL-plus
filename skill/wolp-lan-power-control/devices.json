@@ -1,6 +1,6 @@
 {
   "defaults": {
-    "interface": "br-lan",
+    "broadcast_ip": "255.255.255.255",
     "port": 9,
     "extra_data": "FF:FF:FF:FF:FF:FF"
   },
