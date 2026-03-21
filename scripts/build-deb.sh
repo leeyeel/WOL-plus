@@ -42,7 +42,17 @@ esac
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-BUILD_ROOT="$REPO_ROOT/build/deb/$ARCH"
+if [[ "$INCLUDE_WEBUI" -eq 1 ]]; then
+    VARIANT="with-webui"
+    PKG_DESCRIPTION="UDP-based shutdown listener with bundled web UI for Wake On LAN Plus."
+    OTHER_PKG_NAME="wolp-client-backend-only"
+else
+    VARIANT="backend-only"
+    PKG_DESCRIPTION="UDP-based shutdown listener without bundled web UI for Wake On LAN Plus."
+    OTHER_PKG_NAME="wolp-client-with-webui"
+fi
+
+BUILD_ROOT="$REPO_ROOT/build/deb/$ARCH/$VARIANT"
 PKG_ROOT="$BUILD_ROOT/pkg"
 BIN_DIR="$PKG_ROOT/usr/local/bin"
 ETC_DIR="$PKG_ROOT/usr/local/etc/wolp"
@@ -50,7 +60,7 @@ WEBUI_DIR="$PKG_ROOT/usr/share/wolp/webui"
 SYSTEMD_DIR="$PKG_ROOT/lib/systemd/system"
 DEBIAN_DIR="$PKG_ROOT/DEBIAN"
 OUTPUT_DIR="$REPO_ROOT/release/client"
-PKG_NAME="wolp-client"
+PKG_NAME="wolp-client-$VARIANT"
 PKG_FILE="$OUTPUT_DIR/${PKG_NAME}_${VERSION}_${ARCH}.deb"
 
 rm -rf "$BUILD_ROOT"
@@ -81,8 +91,11 @@ Priority: optional
 Architecture: $ARCH
 Maintainer: leeyeel <mumuli52@gmail.com>
 Depends: systemd
+Provides: wolp-client
+Conflicts: $OTHER_PKG_NAME
+Replaces: $OTHER_PKG_NAME
 Description: Wake On LAN Plus client
- UDP-based shutdown listener with optional web UI for Wake On LAN Plus.
+ $PKG_DESCRIPTION
 EOF
 
 cat > "$DEBIAN_DIR/conffiles" <<EOF

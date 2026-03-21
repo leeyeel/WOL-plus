@@ -91,7 +91,19 @@ RPM_RELEASE="${RPM_VERSION_INFO[1]}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-BUILD_ROOT="$REPO_ROOT/build/rpm/$ARCH"
+if [[ "$INCLUDE_WEBUI" -eq 1 ]]; then
+    VARIANT="with-webui"
+    PACKAGE_NAME="wolp-client-with-webui"
+    OTHER_PACKAGE_NAME="wolp-client-backend-only"
+    PACKAGE_DESCRIPTION="UDP-based shutdown listener with bundled web UI for Wake On LAN Plus."
+else
+    VARIANT="backend-only"
+    PACKAGE_NAME="wolp-client-backend-only"
+    OTHER_PACKAGE_NAME="wolp-client-with-webui"
+    PACKAGE_DESCRIPTION="UDP-based shutdown listener without bundled web UI for Wake On LAN Plus."
+fi
+
+BUILD_ROOT="$REPO_ROOT/build/rpm/$ARCH/$VARIANT"
 RPMBUILD_ROOT="$BUILD_ROOT/rpmbuild"
 STAGE_ROOT="$BUILD_ROOT/stage"
 BIN_DIR="$STAGE_ROOT/usr/local/bin"
@@ -99,7 +111,7 @@ CONFIG_DIR="$STAGE_ROOT/usr/local/etc/wolp"
 WEBUI_DIR="$STAGE_ROOT/usr/share/wolp/webui"
 SYSTEMD_DIR="$STAGE_ROOT/usr/lib/systemd/system"
 OUTPUT_DIR="$REPO_ROOT/release/client"
-SPEC_FILE="$RPMBUILD_ROOT/SPECS/wolp-client.spec"
+SPEC_FILE="$RPMBUILD_ROOT/SPECS/${PACKAGE_NAME}.spec"
 
 rm -rf "$BUILD_ROOT"
 mkdir -p \
@@ -145,15 +157,18 @@ fi
 cat > "$SPEC_FILE" <<EOF
 %global debug_package %{nil}
 
-Name:           wolp-client
+Name:           $PACKAGE_NAME
 Version:        $RPM_VERSION
 Release:        $RPM_RELEASE%{?dist}
 Summary:        Wake On LAN Plus client
 License:        MIT
 Requires:       systemd
+Provides:       wolp-client
+Conflicts:      $OTHER_PACKAGE_NAME
+Obsoletes:      $OTHER_PACKAGE_NAME
 
 %description
-UDP-based shutdown listener with optional web UI for Wake On LAN Plus.
+$PACKAGE_DESCRIPTION
 
 %prep
 :
@@ -197,4 +212,4 @@ rpmbuild --target "$RPM_ARCH" --define "_topdir $RPMBUILD_ROOT" -bb "$SPEC_FILE"
 
 find "$RPMBUILD_ROOT/RPMS" -type f -name '*.rpm' -exec cp {} "$OUTPUT_DIR/" \;
 echo "Built RPM package(s):"
-find "$OUTPUT_DIR" -maxdepth 1 -type f -name 'wolp-client-*.rpm' -print | sort
+find "$OUTPUT_DIR" -maxdepth 1 -type f -name "${PACKAGE_NAME}-*.rpm" -print | sort

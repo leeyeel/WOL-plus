@@ -9,8 +9,20 @@
   #define APP_ARCH "amd64"
 #endif
 
+#ifndef BACKEND_ONLY
+  #define BACKEND_ONLY 0
+#endif
+
 #ifndef BUILD_ROOT
   #define BUILD_ROOT AddBackslash(SourcePath) + "..\build\windows\" + APP_ARCH
+#endif
+
+#if BACKEND_ONLY == 1
+  #define VARIANT_SUFFIX "backend-only"
+  #define MyServiceConfigPath AddBackslash(SourcePath) + "wolp-service-backend-only.xml"
+#else
+  #define VARIANT_SUFFIX "with-webui"
+  #define MyServiceConfigPath AddBackslash(SourcePath) + "wolp-service.xml"
 #endif
 
 #define MyAppName "wolp"
@@ -23,7 +35,7 @@ AppName={#MyAppName}
 AppVersion={#VERSION}
 AppPublisher=leo
 AppPublisherURL=https://github.com/leeyeel/WOL-plus
-OutputBaseFilename=installer_windows_{#APP_ARCH}_v{#VERSION}
+OutputBaseFilename=installer_windows_{#APP_ARCH}_{#VARIANT_SUFFIX}_v{#VERSION}
 DefaultDirName={commonpf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 PrivilegesRequired=admin
@@ -39,9 +51,11 @@ ArchitecturesInstallIn64BitMode=x64compatible
 
 [Files]
 Source: "{#MyBinaryPath}"; DestDir: "{app}"; Flags: ignoreversion
+#if BACKEND_ONLY != 1
 Source: "{#SourcePath}\..\client\webui\*"; DestDir: "{app}\webui"; Flags: recursesubdirs createallsubdirs ignoreversion
+#endif
 Source: "{#SourcePath}\icon.ico"; DestDir: "{app}"; Flags: onlyifdoesntexist
-Source: "{#SourcePath}\wolp-service.xml"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#MyServiceConfigPath}"; DestDir: "{app}"; DestName: "wolp-service.xml"; Flags: ignoreversion
 Source: "{#MyServiceWrapperPath}"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]

@@ -36,6 +36,14 @@ jobs:
   build-windows-installer:
     needs: prepare
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: with-webui
+            backend_only_define: 0
+          - variant: backend-only
+            backend_only_define: 1
 
     steps:
       - name: Checkout code
@@ -60,19 +68,19 @@ jobs:
       - name: Build installer
         shell: cmd
         run: |
-          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DVERSION=${{ needs.prepare.outputs.version }} /DAPP_ARCH=amd64 scripts\windows_x86_64.iss
+          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DVERSION=${{ needs.prepare.outputs.version }} /DAPP_ARCH=amd64 /DBACKEND_ONLY=${{ matrix.backend_only_define }} scripts\windows_x86_64.iss
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
-          name: windows-installer-amd64
-          path: scripts/Output/*.exe
+          name: windows-installer-amd64-${{ matrix.variant }}
+          path: scripts/Output/*_${{ matrix.variant }}_v*.exe
 
       - name: Release (on tag)
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
-          files: scripts/Output/*.exe
+          files: scripts/Output/*_${{ matrix.variant }}_v*.exe
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -84,6 +92,7 @@ jobs:
       fail-fast: false
       matrix:
         arch: [amd64, arm64]
+        variant: [with-webui, backend-only]
 
     steps:
       - name: Checkout code
@@ -97,12 +106,16 @@ jobs:
       - name: Build Debian package
         run: |
           chmod +x scripts/build-deb.sh
-          scripts/build-deb.sh "${{ matrix.arch }}" "${{ needs.prepare.outputs.version }}"
+          if [[ "${{ matrix.variant }}" == "backend-only" ]]; then
+            scripts/build-deb.sh --without-webui "${{ matrix.arch }}" "${{ needs.prepare.outputs.version }}"
+          else
+            scripts/build-deb.sh "${{ matrix.arch }}" "${{ needs.prepare.outputs.version }}"
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
-          name: deb-package-${{ matrix.arch }}
+          name: deb-package-${{ matrix.arch }}-${{ matrix.variant }}
           path: release/client/*.deb
 
       - name: Release (on tag)
@@ -121,6 +134,7 @@ jobs:
       fail-fast: false
       matrix:
         arch: [amd64, arm64]
+        variant: [with-webui, backend-only]
 
     steps:
       - name: Checkout code
@@ -139,12 +153,16 @@ jobs:
       - name: Build RPM package
         run: |
           chmod +x scripts/build-rpm.sh
-          scripts/build-rpm.sh "${{ matrix.arch }}" "${{ needs.prepare.outputs.version }}"
+          if [[ "${{ matrix.variant }}" == "backend-only" ]]; then
+            scripts/build-rpm.sh --without-webui "${{ matrix.arch }}" "${{ needs.prepare.outputs.version }}"
+          else
+            scripts/build-rpm.sh "${{ matrix.arch }}" "${{ needs.prepare.outputs.version }}"
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
-          name: rpm-package-${{ matrix.arch }}
+          name: rpm-package-${{ matrix.arch }}-${{ matrix.variant }}
           path: release/client/*.rpm
 
       - name: Release (on tag)
