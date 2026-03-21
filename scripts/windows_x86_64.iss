@@ -10,14 +10,14 @@
 #endif
 
 #ifndef BACKEND_ONLY
-  #define BACKEND_ONLY 0
+  #define BACKEND_ONLY "0"
 #endif
 
 #ifndef BUILD_ROOT
   #define BUILD_ROOT AddBackslash(SourcePath) + "..\build\windows\" + APP_ARCH
 #endif
 
-#if BACKEND_ONLY == 1
+#if "1" == BACKEND_ONLY
   #define VARIANT_SUFFIX "backend-only"
   #define MyServiceConfigPath AddBackslash(SourcePath) + "wolp-service-backend-only.xml"
 #else
@@ -51,7 +51,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 
 [Files]
 Source: "{#MyBinaryPath}"; DestDir: "{app}"; Flags: ignoreversion
-#if BACKEND_ONLY != 1
+#if "1" != BACKEND_ONLY
 Source: "{#SourcePath}\..\client\webui\*"; DestDir: "{app}\webui"; Flags: recursesubdirs createallsubdirs ignoreversion
 #endif
 Source: "{#SourcePath}\icon.ico"; DestDir: "{app}"; Flags: onlyifdoesntexist
