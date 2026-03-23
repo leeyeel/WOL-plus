@@ -4,12 +4,21 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Wake On LAN Plus 由两部分组成：
+Wake On LAN Plus 的核心是 `Client` 接收端；发送端可以按需要选择 `OpenWrt`、`Agent`，或两者同时使用。
+
+常见组合有：
+
+- OpenWrt + Client：通过 LuCI 页面发送唤醒包和关机包
+- Agent + Client：通过仓库内 `skill/wolp` 在 OpenClaw、Claude Code、Codex CLI 等 agent 环境中发送唤醒包和关机包，见下文 [Skill 使用](#skill-使用)
+- OpenWrt + Agent + Client：同时保留 LuCI 和 agent 两种发送方式，共用同一个 Client 接收端
+
+各部分职责如下：
 
 - OpenWrt 端：发送端，集成到 LuCI，用来发送唤醒包和关机包
+- Agent 端：发送端，通过 `skill/wolp` 从命令行或 agent 环境发送唤醒包和关机包
 - Client 端：接收端，运行在 Windows 或 Linux 上，接收关机包并提供 Web UI 配置页面
 
-如果你只想尽快用起来，建议按这个顺序：
+如果你采用的是最常见的 OpenWrt + Client 组合，建议按这个顺序：
 
 1. 从 [Releases](https://github.com/leeyeel/WOL-plus/releases) 下载 OpenWrt 端和 Client 端安装包
 2. 在目标电脑上先安装 Client 端
@@ -33,6 +42,10 @@ Wake On LAN Plus 由两部分组成：
 ### Client 端 Web UI
 
 ![WOLP Server](client/wolp-client.jpg)
+
+### Agent 端(以OpenClaw为例)
+
+![Agent Skill](skill/skill.jpg)
 
 ## Releases 下载说明
 
