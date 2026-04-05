@@ -1,61 +1,75 @@
 ---
 name: wolp
-description: Wake or shut down LAN devices by sending WOL-plus packets from the agent host. Use this when the user wants to power on a device with a raw Ethernet magic packet, or power off a device with a UDP magic packet, and they can provide the target MAC address plus the network interface or target IPv4 address.
+description: Wake or shut down LAN devices from the agent host. Use this when the user wants to power on a device with a raw Ethernet Wake-on-LAN frame or power off a device with a WOL-plus UDP packet, and they can provide the target MAC address plus a network interface for wake or a target IPv4 address for shutdown.
 ---
 
 # wolp
 
-Use this skill when the user wants the agent to control a device on the local network.
+Use this skill when the user wants the agent to control power state for a machine on the local network.
+
+Use the bundled script:
+
+- `scripts/wolp_power.py`
 
 Supported operations:
 
-- `wake`: send a standard UDP Wake-on-LAN magic packet with Python
-- `shutdown`: send a UDP magic packet to a target IPv4 address
-- `list`: print the resolved device inventory
+- `list`: print the resolved inventory the script will use
+- `wake`: send a standard Wake-on-LAN raw Ethernet frame
+- `shutdown`: send a WOL-plus UDP packet to a target IPv4 address
 
-Use the bundled Python script:
+Runtime properties:
 
-- `scripts/wolp_power.py`
-- `assets/devices.json`
+- The script uses only the Python standard library.
+- No `pip install` step is required.
+- Real `wake` sends require Linux `AF_PACKET` support plus `CAP_NET_RAW` or `root`.
+- Default inventory path is:
+  - `WOLP_DEVICE_FILE`, if set
+  - otherwise `XDG_CONFIG_HOME/wolp/devices.json`
+  - otherwise `~/.config/wolp/devices.json`
+- The bundled example inventory is `assets/devices.example.json`.
+- Successful non-dry-run operations update the resolved inventory file in the user config path, not inside the skill directory.
+- Packet send confirms local transmission only. It does not prove the remote host changed power state.
 
-Required inputs:
+Minimum required inputs:
 
 - Wake:
   - target MAC address
-  - optional broadcast IPv4 address, default `255.255.255.255`
-  - optional UDP port, default `9`
+  - network interface name on the sender, such as `eno1` or `wlp6s0`
 - Shutdown:
   - target MAC address
   - target IPv4 address
   - optional `extra_data`, default `FF:FF:FF:FF:FF:FF`
   - optional UDP port, default `9`
 
-Constraints:
+Execution policy:
 
-- `shutdown` uses a normal UDP socket and does not require `root`.
-- `wake` uses the Python package `wakeonlan` and does not require a compiled helper.
-- Install the dependency before sending wake packets:
+- Default to `--dry-run` first unless the user clearly asked to send immediately.
+- Before a real `wake`, confirm the agent is running on Linux and has permission to open raw sockets.
+- Before a real `shutdown`, get explicit confirmation from the user.
+- For `wake`, echo the resolved MAC, interface, source MAC, EtherType, and whether the run was dry-run or real send.
+- For `wake`, also echo whether the interface came from `cli`, `inventory`, or `auto`.
+- For `shutdown`, echo the resolved MAC, host, UDP port, and whether the run was dry-run or real send.
 
-```bash
-python3 -m pip install wakeonlan
-```
+Inventory workflow:
 
-- The `wake` subcommand will print a clear error if `wakeonlan` is missing.
-- `shutdown` requires IP connectivity to the target host and a compatible WOL-plus listener on the target machine.
-- Packet send confirms only local transmission, not that the remote machine actually changed power state.
-
-Device inventory:
-
-- Store reusable devices in `skill/wolp/assets/devices.json`.
-- Successful non-dry-run `wake` and `shutdown` commands automatically write the resolved device info back to `assets/devices.json`.
-- If `--device <name>` is provided, that entry is updated in place; otherwise the script reuses an existing entry with the same MAC or creates a new `device-<mac>` entry.
-- Repeated operations on the same device keep refreshing that device's stored fields and the latest success metadata.
-- The file format is:
+- Use `wake --list-interfaces` first when you need to discover the correct local NIC name.
+- Prefer entries where `preferred` is `true`.
+- If multiple entries are `preferred`, choose an `operstate=up` physical LAN NIC rather than `lo`, `docker*`, `br-*`, `tailscale*`, `tun*`, `tap*`, or other virtual interfaces.
+- If the user wants the agent to choose automatically, use `wake --auto-interface`.
+- Use `list` first when you need to inspect or verify stored devices.
+- If `--device <name>` is provided, resolve values from that entry first.
+- If `--device <name>` is provided with explicit CLI flags and that entry does not exist yet, treat the device name as the record name to use on a later successful send.
+- If `wake --device <name>` resolves a MAC but no interface, automatically select the best local interface using the same logic as `--auto-interface`.
+- CLI flags override inventory values.
+- On a successful real send:
+  - if `--device <name>` is set, update that record in place
+  - otherwise, reuse an existing entry with the same MAC or create `device-<mac>`
+- If the default inventory file does not exist yet, the script initializes it with empty `devices` and default values.
+- The example file format is:
 
 ```json
 {
   "defaults": {
-    "broadcast_ip": "255.255.255.255",
     "port": 9,
     "extra_data": "FF:FF:FF:FF:FF:FF"
   },
@@ -63,7 +77,7 @@ Device inventory:
     "nas": {
       "mac": "AA:BB:CC:DD:EE:FF",
       "host": "192.168.1.50",
-      "broadcast_ip": "192.168.1.255"
+      "interface": "eno1"
     },
     "desktop": {
       "mac": "11:22:33:44:55:66",
@@ -77,104 +91,31 @@ Device inventory:
 }
 ```
 
-- Use `list` before sending if you need to inspect or verify stored devices.
-- CLI flags override inventory values.
-
 Preferred commands:
 
 ```bash
 python3 skill/wolp/scripts/wolp_power.py list
+python3 skill/wolp/scripts/wolp_power.py wake --list-interfaces
+python3 skill/wolp/scripts/wolp_power.py wake --auto-interface --mac AA:BB:CC:DD:EE:FF --dry-run
 python3 skill/wolp/scripts/wolp_power.py wake --device nas
 python3 skill/wolp/scripts/wolp_power.py shutdown --device nas
-python3 skill/wolp/scripts/wolp_power.py wake --mac AA:BB:CC:DD:EE:FF
-python3 skill/wolp/scripts/wolp_power.py wake --mac AA:BB:CC:DD:EE:FF --broadcast-ip 192.168.1.255 --port 9
+python3 skill/wolp/scripts/wolp_power.py wake --mac AA:BB:CC:DD:EE:FF --interface eth0
 python3 skill/wolp/scripts/wolp_power.py shutdown --host 192.168.1.50 --mac AA:BB:CC:DD:EE:FF --extra-data FF:FF:FF:FF:FF:FF --port 9
 ```
 
-For safe previews or debugging, use `--dry-run` first:
+Safe preview commands:
 
 ```bash
 python3 skill/wolp/scripts/wolp_power.py wake --device nas --dry-run
 python3 skill/wolp/scripts/wolp_power.py shutdown --device nas --dry-run
 ```
 
-Client install and config:
+Failure handling:
 
-- Project: `https://github.com/leeyeel/WOL-plus`
-- Releases: `https://github.com/leeyeel/WOL-plus/releases`
-- Client receives shutdown packets and can optionally serve the Web UI.
-- Default Web UI access when enabled:
-  - URL: `http://<client-ip>:2025`
-  - username: `admin`
-  - password: `admin123`
-- Backend-only mode:
-  - start with `wolp --backend-only`
-  - Web UI assets may be omitted
-  - service installs that omit Web UI should run `ExecStart=/usr/local/bin/wolp --backend-only`
-  - configure `/usr/local/etc/wolp/wolp.json` directly
+- If the user does not provide enough information, ask only for the missing MAC, wake interface, or shutdown target IPv4.
+- If `wake --auto-interface` fails, run `wake --list-interfaces` and choose a `preferred=true` physical LAN NIC explicitly.
+- If `shutdown` succeeds locally but the target does not power off, verify receiver-side `extra_data`, `udp_port`, firewall rules, and that the WOL-plus client is running.
+- If `wake` fails locally, verify Linux host support, raw-socket permission, and that the chosen interface is the correct LAN NIC.
+- If the user needs receiver installation or configuration, read `references/client-install.md`.
 
-Agent standard install procedure:
-
-1. Confirm the minimum missing inputs only:
-   - target OS: Windows, Debian/Ubuntu, or RPM-based Linux
-   - target architecture when relevant: `amd64` or `arm64`/`aarch64`
-   - whether the agent can install directly on the target machine or must only provide user instructions
-   - target machine IP if the user wants Web UI verification
-2. Choose the install source:
-   - prefer a matching package from Releases
-   - prefer the Debian package when the agent can reach a Debian/Ubuntu host over SSH
-   - only build from this repo when a needed Debian package is unavailable from Releases
-3. Install by platform:
-   - Windows:
-     - download `installer_windows_amd64_v<version>.exe` from Releases
-     - if the agent cannot control the Windows desktop session, tell the user to run the installer manually
-     - after installation, verify the service is running and open `http://<windows-ip>:2025`
-   - Debian/Ubuntu:
-     ```bash
-     sudo dpkg -i wolp-client_<version>_amd64.deb
-     sudo systemctl status wolp.service
-     ```
-   - RPM Linux:
-     ```bash
-     sudo rpm -ivh wolp-client-<version>-1.x86_64.rpm
-     sudo systemctl status wolp.service
-     ```
-4. Debian build fallback from this repo:
-   ```bash
-   bash scripts/build-deb.sh --without-webui amd64 0.0.0-dev
-   sudo dpkg -i release/client/wolp-client_0.0.0-dev_amd64.deb
-   sudo systemctl status wolp.service
-   ```
-5. Verify the client after install:
-   - confirm `wolp.service` is active
-   - if Web UI is installed, confirm it responds at `http://<client-ip>:2025`
-   - if backend-only mode is enabled, confirm port `2025` is not expected to listen
-   - if Web UI is enabled, tell the user to change the default password after first login
-6. Configure the client when the user wants shutdown support:
-   - edit `/usr/local/etc/wolp/wolp.json`
-   - set `mac_address` to the client machine MAC that should receive the shutdown packet
-   - set `interface` to the active NIC name on the client machine
-   - set `extra_data` to match the sender's `--extra-data`
-   - set `udp_port` to match the sender's `--port`
-   - set `shutdown_delay`, `username`, and `password` as requested
-7. Remember the fixed defaults and path layout:
-   - binary: `/usr/local/bin/wolp`
-   - config: `/usr/local/etc/wolp/wolp.json`
-   - web UI: `/usr/share/wolp/webui` when installed
-   - service: `wolp.service`
-   - runtime flag `--backend-only` disables the HTTP server
-   - default `extra_data=FF:FF:FF:FF:FF:FF`
-   - default `udp_port=9`
-   - default `shutdown_delay=60`
-   - default HTTP UI port `2025`
-8. Keep protocol roles clear:
-   - sender-side inventory `interface` matters only for `wake`
-   - receiver-side `udp_port` and `extra_data` matter only for `shutdown`
-
-When reporting results or performing installs:
-
-- echo the resolved broadcast IP, host, UDP port, and normalized MAC values
-- for wake, report that the packet is sent through the `wakeonlan` Python package
-- state clearly whether the script performed a real send or a dry run
-- if the user did not provide enough data, ask only for the missing MAC, target IPv4 address, or wake broadcast IP when needed
-- if you install the client, report the package source, package path, config path, whether Web UI is installed, and the exact `extra_data` and `udp_port` values you configured
+Receiver-side install and config details live in `references/client-install.md`.

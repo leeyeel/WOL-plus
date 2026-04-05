@@ -1,0 +1,4 @@
+interface:
+  display_name: "Wake On LAN Plus"
+  short_description: "Wake or shut down LAN devices"
+  default_prompt: "Use $wolp to inspect the device inventory and safely wake or shut down a LAN device."

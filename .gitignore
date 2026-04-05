@@ -9,3 +9,4 @@ wolp-test
 ipk-build/
 client/src/backend
 __pycache__
+.pytest_cache

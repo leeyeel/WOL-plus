@@ -284,6 +284,21 @@ ExecStart=/usr/local/bin/wolp --backend-only
 
 目前该 skill 已上架 OpenClaw，其他 agent 可通过手动拷贝目录的方式安装。
 
+Skill 当前行为：
+
+- `wake` 和 `shutdown` 都使用 Python 标准库，不再依赖额外 `pip` 包
+- `wake` 在 Linux 上使用原始以太帧发送标准 WOL，需要指定网络接口，并在真实发包时具备 `CAP_NET_RAW` 或 `root`
+- 可以先运行 `python3 skill/wolp/scripts/wolp_power.py wake --list-interfaces` 枚举本机网卡，优先选择 `preferred=true` 且 `operstate=up` 的非虚拟接口
+- 也可以直接用 `python3 skill/wolp/scripts/wolp_power.py wake --auto-interface --mac <MAC> --dry-run` 让脚本自动选最优接口
+- `shutdown` 继续使用 UDP 发送 WOL-plus 数据包
+- 默认设备清单写入用户配置目录，而不是 skill 安装目录：
+  - `WOLP_DEVICE_FILE`
+  - 或 `XDG_CONFIG_HOME/wolp/devices.json`
+  - 或 `~/.config/wolp/devices.json`
+- 仓库内仅保留示例清单：
+  - `skill/wolp/assets/devices.example.json`
+- 建议先用 `--dry-run` 预览，再执行真实发送
+
 ### OpenClaw 安装
 
 ```bash
