@@ -6,105 +6,257 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-# 頁面標題和描述
-msgid "Wake on LAN Plus"
-msgstr "網路喚醒+"
-
-msgid "Wake on LAN Plus is a mechanism to boot and shutdown computers remotely in the local network."
-msgstr "網路喚醒+是一個遠端啟動或關閉本地網路內電腦的機制。"
-
-# 表單欄位 - 操作類型
 msgid "Action"
 msgstr "操作"
 
-msgid "Choose whether to wake up or shutdown the host"
-msgstr "選擇喚醒或關閉主機"
+msgid "Actions"
+msgstr "操作項"
 
-msgid "Wake up"
-msgstr "喚醒"
+msgid "Add Device"
+msgstr "新增裝置"
 
-msgid "Shutdown"
-msgstr "關機"
-
-# 表單欄位 - 網路介面
-msgid "Network interface to use"
-msgstr "使用的網路介面"
-
-msgid "Specifies the interface the WoL packet is sent on"
-msgstr "指定傳送網路喚醒封包的介面"
-
-# 表單欄位 - 目標主機
-msgid "Host to wake up or shutdown"
-msgstr "要喚醒或關閉的主機"
-
-msgid "Choose the host to control or enter a custom MAC address to use"
-msgstr "選擇要控制的主機，或輸入自訂MAC位址"
-
-# 表單欄位 - 附加資料
 msgid "Additional Data"
 msgstr "附加資料"
 
-msgid "Enter 6-byte custom data (XX:XX:XX:XX:XX:XX).<br />If not specified for shutdown, defaults to FF:FF:FF:FF:FF:FF."
-msgstr "輸入 6 位元組自訂資料（XX:XX:XX:XX:XX:XX）。<br />若用於關機時未指定，則預設為 FF:FF:FF:FF:FF:FF。"
-
-# 表單欄位 - 廣播
-msgid "Send to broadcast address"
-msgstr "傳送到廣播位址"
-
-# 表單欄位 - UDP埠
-msgid "UDP Port for Shutdown"
-msgstr "關機UDP埠"
-
-msgid "UDP port to send shutdown command (default: 9)"
-msgstr "傳送關機命令的UDP埠（預設：9）"
-
-# 按鈕
-msgid "Execute"
-msgstr "執行"
-
-msgid "Command executed successfully"
-msgstr "命令執行成功"
-
-# 成功提示
-msgid "Waking host"
-msgstr "正在喚醒主機"
-
-msgid "Starting WoL utility…"
-msgstr "正在啟動網路喚醒工具…"
-
-msgid "Shutting down host"
-msgstr "正在關閉主機"
+msgid "Cancel"
+msgstr "取消"
 
 msgid "Checking host reachability…"
 msgstr "正在檢查主機可達性…"
 
-msgid "Sending shutdown command…"
-msgstr "正在傳送關機命令…"
+msgid "Command executed successfully"
+msgstr "命令執行成功"
 
-msgid "Shutdown request sent"
-msgstr "關機請求已送出"
+msgid "Configured Device"
+msgstr "已設定裝置"
+
+msgid "Configured Devices"
+msgstr "已設定裝置"
+
+msgid "Configured devices are persistent. Current IP and status are enriched from OpenWrt host hints and reachability probes."
+msgstr "已設定裝置會持久保存。當前 IP 與狀態會結合 OpenWrt 主機提示和連通性探測結果顯示。"
+
+msgid "Custom Input"
+msgstr "自訂輸入"
+
+msgid "Default Additional Data"
+msgstr "預設附加資料"
+
+msgid "Default Interface"
+msgstr "預設介面"
+
+msgid "Default UDP Port"
+msgstr "預設 UDP 連接埠"
+
+msgid "Defaults"
+msgstr "預設設定"
+
+msgid "Defaults saved successfully."
+msgstr "預設設定已儲存。"
+
+msgid "Delete"
+msgstr "刪除"
+
+msgid "Delete device"
+msgstr "刪除裝置"
+
+msgid "Device"
+msgstr "裝置"
+
+msgid "Device Inventory"
+msgstr "裝置清單"
+
+msgid "Device Name"
+msgstr "裝置名稱"
+
+msgid "Device deleted successfully."
+msgstr "裝置已刪除。"
+
+msgid "Device saved successfully."
+msgstr "裝置已儲存。"
+
+msgid "Devices saved in luci-wolp device inventory"
+msgstr "儲存在 luci-wolp 裝置清單中的裝置"
+
+msgid "Disabled"
+msgstr "已停用"
 
 msgid "Dismiss"
 msgstr "關閉"
 
-# 錯誤提示
-msgid "No target host specified!"
-msgstr "未指定目標主機！"
+msgid "Edit"
+msgstr "編輯"
 
-msgid "etherwake is not installed!"
-msgstr "etherwake未安裝！"
+msgid "Edit Device"
+msgstr "編輯裝置"
 
-msgid "netcat is not installed!"
-msgstr "netcat未安裝！"
+msgid "Enabled"
+msgstr "啟用"
+
+msgid "Enter a device name."
+msgstr "請輸入裝置名稱。"
+
+msgid "Enter a valid IPv4 address."
+msgstr "請輸入有效的 IPv4 位址。"
+
+msgid "Enter a valid MAC address."
+msgstr "請輸入有效的 MAC 位址。"
+
+msgid "Enter a valid UDP port."
+msgstr "請輸入有效的 UDP 連接埠。"
+
+msgid "Enter valid additional data in MAC format."
+msgstr "請輸入 MAC 格式的有效附加資料。"
+
+msgid "Execute"
+msgstr "執行"
+
+msgid "Failed"
+msgstr "失敗"
+
+msgid "Failed to delete device"
+msgstr "刪除裝置失敗"
+
+msgid "Failed to refresh device status"
+msgstr "重新整理裝置狀態失敗"
+
+msgid "Failed to save defaults"
+msgstr "儲存預設設定失敗"
+
+msgid "Failed to save device"
+msgstr "儲存裝置失敗"
+
+msgid "IPv4 Address"
+msgstr "IPv4 位址"
+
+msgid "Include this device in dashboard actions"
+msgstr "將此裝置納入儀表板操作"
+
+msgid "MAC Address"
+msgstr "MAC 位址"
+
+msgid "Manage configured wake devices, inspect their current reachability, and trigger wake or shutdown actions without leaving the page."
+msgstr "管理已設定的喚醒裝置，檢視目前可達性，並直接在此頁面執行喚醒或關機。"
+
+msgid "Manual Operation"
+msgstr "手動操作"
 
 msgid "No IPv4 address available for shutdown target. Ensure the host is online or has a host hint entry."
-msgstr "沒有可用於關機目標的IPv4位址。請確認主機在線，或存在對應的主機提示記錄。"
+msgstr "沒有可用於關機目標的 IPv4 位址。請確認主機在線上，或存在對應的主機提示記錄。"
 
-msgid "Device appears offline or unreachable"
-msgstr "裝置似乎離線或不可達"
+msgid "No devices have been configured yet. Add a device to build a persistent wake inventory."
+msgstr "尚未設定任何裝置。新增裝置以建立持久的喚醒清單。"
+
+msgid "No probeable IPv4 address is currently known"
+msgstr "目前沒有可探測的 IPv4 位址"
+
+msgid "Offline"
+msgstr "離線"
+
+msgid "Online"
+msgstr "線上"
+
+msgid "Optional. Falls back to the default interface when present"
+msgstr "可選。留空時會回退到預設介面。"
+
+msgid "Optional. Used for shutdown and reachability checks"
+msgstr "可選。用於關機與連通性檢查。"
+
+msgid "Ping reachable with a known IPv4 address"
+msgstr "具有已知 IPv4 且可被 Ping 到"
+
+msgid "Refresh Status"
+msgstr "重新整理狀態"
+
+msgid "Refreshing device status"
+msgstr "正在重新整理裝置狀態"
+
+msgid "Required for shutdown when no current host hint is available"
+msgstr "當目前沒有可用主機提示時，關機必填"
+
+msgid "Resolved from host hints"
+msgstr "由主機提示解析"
+
+msgid "Save"
+msgstr "儲存"
+
+msgid "Save Defaults"
+msgstr "儲存預設設定"
+
+msgid "Select at least one enabled device to wake."
+msgstr "至少選擇一個已啟用裝置進行喚醒。"
+
+msgid "Send to broadcast address"
+msgstr "傳送到廣播位址"
+
+msgid "Sending shutdown command…"
+msgstr "正在傳送關機命令…"
+
+msgid "Shutdown"
+msgstr "關機"
+
+msgid "Shutdown request sent"
+msgstr "關機請求已送出"
+
+msgid "Shutting down host"
+msgstr "正在關閉主機"
+
+msgid "Shutting down host failed"
+msgstr "關閉主機失敗"
+
+msgid "Starting WoL utility…"
+msgstr "正在啟動網路喚醒工具…"
+
+msgid "Status"
+msgstr "狀態"
+
+msgid "Stored IPv4 exists but ping probe failed"
+msgstr "已儲存的 IPv4 存在，但 Ping 探測失敗"
+
+msgid "Success"
+msgstr "成功"
+
+msgid "The selected device does not have a valid MAC address."
+msgstr "所選裝置沒有有效的 MAC 位址。"
+
+msgid "These values prefill new devices and manual operations. Device-level values override defaults."
+msgstr "這些值會預填新裝置和手動操作；裝置層級設定會覆蓋預設值。"
+
+msgid "UDP Port"
+msgstr "UDP 連接埠"
+
+msgid "Unknown"
+msgstr "未知"
+
+msgid "Use this panel for one-off operations or to prefill fields from a configured device."
+msgstr "使用此面板執行一次性操作，或從已設定裝置預填欄位。"
+
+msgid "Used only for wake requests"
+msgstr "僅用於喚醒請求"
+
+msgid "Wake"
+msgstr "喚醒"
+
+msgid "Wake Interface"
+msgstr "喚醒介面"
+
+msgid "Wake Selected"
+msgstr "喚醒所選"
+
+msgid "Wake on LAN Plus"
+msgstr "網路喚醒+"
+
+msgid "Waking host"
+msgstr "正在喚醒主機"
 
 msgid "Waking host failed"
 msgstr "喚醒主機失敗"
 
-msgid "Shutting down host failed"
-msgstr "關閉主機失敗"
+msgid "Waking selected devices"
+msgstr "正在喚醒所選裝置"
+
+msgid "etherwake is not installed!"
+msgstr "etherwake 未安裝！"
+
+msgid "netcat is not installed!"
+msgstr "netcat 未安裝！"

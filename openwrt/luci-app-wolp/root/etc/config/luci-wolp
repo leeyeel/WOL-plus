@@ -1,1 +1,3 @@
 config wol 'defaults'
+	option udp_port '9'
+	option extra_data 'FF:FF:FF:FF:FF:FF'

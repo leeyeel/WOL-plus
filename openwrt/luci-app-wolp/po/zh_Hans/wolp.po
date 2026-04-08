@@ -6,105 +6,257 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-# 页面标题和描述
-msgid "Wake on LAN Plus"
-msgstr "网络唤醒+"
-
-msgid "Wake on LAN Plus is a mechanism to boot and shutdown computers remotely in the local network."
-msgstr "网络唤醒+是一个远程启动或关闭本地网络内计算机的机制。"
-
-# 表单字段 - 操作类型
 msgid "Action"
 msgstr "操作"
 
-msgid "Choose whether to wake up or shutdown the host"
-msgstr "选择唤醒或关闭主机"
+msgid "Actions"
+msgstr "操作项"
 
-msgid "Wake up"
-msgstr "唤醒"
+msgid "Add Device"
+msgstr "添加设备"
 
-msgid "Shutdown"
-msgstr "关机"
-
-# 表单字段 - 网络接口
-msgid "Network interface to use"
-msgstr "使用的网络接口"
-
-msgid "Specifies the interface the WoL packet is sent on"
-msgstr "指定发送网络唤醒数据包的接口"
-
-# 表单字段 - 目标主机
-msgid "Host to wake up or shutdown"
-msgstr "要唤醒或关闭的主机"
-
-msgid "Choose the host to control or enter a custom MAC address to use"
-msgstr "选择要控制的主机，或输入自定义MAC地址"
-
-# 表单字段 - 附加数据
 msgid "Additional Data"
 msgstr "附加数据"
 
-msgid "Enter 6-byte custom data (XX:XX:XX:XX:XX:XX).<br />If not specified for shutdown, defaults to FF:FF:FF:FF:FF:FF."
-msgstr "输入 6 字节自定义数据（XX:XX:XX:XX:XX:XX）。<br />若用于关机时未指定，则默认为 FF:FF:FF:FF:FF:FF。"
+msgid "Cancel"
+msgstr "取消"
 
-# 表单字段 - 广播
-msgid "Send to broadcast address"
-msgstr "发送到广播地址"
-
-# 表单字段 - UDP端口
-msgid "UDP Port for Shutdown"
-msgstr "关机UDP端口"
-
-msgid "UDP port to send shutdown command (default: 9)"
-msgstr "发送关机命令的UDP端口（默认：9）"
-
-# 按钮
-msgid "Execute"
-msgstr "执行"
+msgid "Checking host reachability…"
+msgstr "正在检查主机连通性…"
 
 msgid "Command executed successfully"
 msgstr "命令执行成功"
 
-# 成功提示
-msgid "Waking host"
-msgstr "正在唤醒主机"
+msgid "Configured Device"
+msgstr "已配置设备"
 
-msgid "Starting WoL utility…"
-msgstr "正在启动网络唤醒工具…"
+msgid "Configured Devices"
+msgstr "已配置设备"
 
-msgid "Shutting down host"
-msgstr "正在关闭主机"
+msgid "Configured devices are persistent. Current IP and status are enriched from OpenWrt host hints and reachability probes."
+msgstr "已配置设备会持久保存。当前 IP 和状态会结合 OpenWrt 主机提示与连通性探测结果展示。"
 
-msgid "Sending shutdown command…"
-msgstr "正在发送关机命令…"
+msgid "Custom Input"
+msgstr "自定义输入"
 
-msgid "Checking host reachability…"
-msgstr "正在检查主机可达性…"
+msgid "Default Additional Data"
+msgstr "默认附加数据"
 
-msgid "Shutdown request sent"
-msgstr "关机请求已发送"
+msgid "Default Interface"
+msgstr "默认接口"
+
+msgid "Default UDP Port"
+msgstr "默认 UDP 端口"
+
+msgid "Defaults"
+msgstr "默认设置"
+
+msgid "Defaults saved successfully."
+msgstr "默认设置已保存。"
+
+msgid "Delete"
+msgstr "删除"
+
+msgid "Delete device"
+msgstr "删除设备"
+
+msgid "Device"
+msgstr "设备"
+
+msgid "Device Inventory"
+msgstr "设备清单"
+
+msgid "Device Name"
+msgstr "设备名称"
+
+msgid "Device deleted successfully."
+msgstr "设备已删除。"
+
+msgid "Device saved successfully."
+msgstr "设备已保存。"
+
+msgid "Devices saved in luci-wolp device inventory"
+msgstr "保存在 luci-wolp 设备清单中的设备"
+
+msgid "Disabled"
+msgstr "已禁用"
 
 msgid "Dismiss"
 msgstr "关闭"
 
-# 错误提示
-msgid "No target host specified!"
-msgstr "未指定目标主机！"
+msgid "Edit"
+msgstr "编辑"
 
-msgid "etherwake is not installed!"
-msgstr "etherwake未安装！"
+msgid "Edit Device"
+msgstr "编辑设备"
 
-msgid "netcat is not installed!"
-msgstr "netcat未安装！"
+msgid "Enabled"
+msgstr "启用"
+
+msgid "Enter a device name."
+msgstr "请输入设备名称。"
+
+msgid "Enter a valid IPv4 address."
+msgstr "请输入有效的 IPv4 地址。"
+
+msgid "Enter a valid MAC address."
+msgstr "请输入有效的 MAC 地址。"
+
+msgid "Enter a valid UDP port."
+msgstr "请输入有效的 UDP 端口。"
+
+msgid "Enter valid additional data in MAC format."
+msgstr "请输入 MAC 格式的有效附加数据。"
+
+msgid "Execute"
+msgstr "执行"
+
+msgid "Failed"
+msgstr "失败"
+
+msgid "Failed to delete device"
+msgstr "删除设备失败"
+
+msgid "Failed to refresh device status"
+msgstr "刷新设备状态失败"
+
+msgid "Failed to save defaults"
+msgstr "保存默认设置失败"
+
+msgid "Failed to save device"
+msgstr "保存设备失败"
+
+msgid "IPv4 Address"
+msgstr "IPv4 地址"
+
+msgid "Include this device in dashboard actions"
+msgstr "将该设备纳入仪表盘操作"
+
+msgid "MAC Address"
+msgstr "MAC 地址"
+
+msgid "Manage configured wake devices, inspect their current reachability, and trigger wake or shutdown actions without leaving the page."
+msgstr "管理已配置的唤醒设备，查看当前可达性，并直接在当前页面执行唤醒或关机。"
+
+msgid "Manual Operation"
+msgstr "手动操作"
 
 msgid "No IPv4 address available for shutdown target. Ensure the host is online or has a host hint entry."
-msgstr "没有可用于关机目标的IPv4地址。请确保主机在线，或存在对应的主机提示记录。"
+msgstr "没有可用于关机目标的 IPv4 地址。请确认主机在线，或存在对应的主机提示记录。"
 
-msgid "Device appears offline or unreachable"
-msgstr "设备似乎离线或不可达"
+msgid "No devices have been configured yet. Add a device to build a persistent wake inventory."
+msgstr "还没有配置任何设备。添加设备以建立持久的唤醒清单。"
+
+msgid "No probeable IPv4 address is currently known"
+msgstr "当前没有可探测的 IPv4 地址"
+
+msgid "Offline"
+msgstr "离线"
+
+msgid "Online"
+msgstr "在线"
+
+msgid "Optional. Falls back to the default interface when present"
+msgstr "可选。为空时会回退到默认接口。"
+
+msgid "Optional. Used for shutdown and reachability checks"
+msgstr "可选。用于关机和连通性检测。"
+
+msgid "Ping reachable with a known IPv4 address"
+msgstr "具有已知 IPv4 且 Ping 可达"
+
+msgid "Refresh Status"
+msgstr "刷新状态"
+
+msgid "Refreshing device status"
+msgstr "正在刷新设备状态"
+
+msgid "Required for shutdown when no current host hint is available"
+msgstr "当当前没有可用主机提示时，关机必须填写"
+
+msgid "Resolved from host hints"
+msgstr "由主机提示解析"
+
+msgid "Save"
+msgstr "保存"
+
+msgid "Save Defaults"
+msgstr "保存默认设置"
+
+msgid "Select at least one enabled device to wake."
+msgstr "至少选择一个已启用设备进行唤醒。"
+
+msgid "Send to broadcast address"
+msgstr "发送到广播地址"
+
+msgid "Sending shutdown command…"
+msgstr "正在发送关机命令…"
+
+msgid "Shutdown"
+msgstr "关机"
+
+msgid "Shutdown request sent"
+msgstr "关机请求已发送"
+
+msgid "Shutting down host"
+msgstr "正在关闭主机"
+
+msgid "Shutting down host failed"
+msgstr "关闭主机失败"
+
+msgid "Starting WoL utility…"
+msgstr "正在启动 WoL 工具…"
+
+msgid "Status"
+msgstr "状态"
+
+msgid "Stored IPv4 exists but ping probe failed"
+msgstr "已保存 IPv4，但 Ping 探测失败"
+
+msgid "Success"
+msgstr "成功"
+
+msgid "The selected device does not have a valid MAC address."
+msgstr "所选设备没有有效的 MAC 地址。"
+
+msgid "These values prefill new devices and manual operations. Device-level values override defaults."
+msgstr "这些值会预填新设备和手动操作；设备级配置会覆盖默认值。"
+
+msgid "UDP Port"
+msgstr "UDP 端口"
+
+msgid "Unknown"
+msgstr "未知"
+
+msgid "Use this panel for one-off operations or to prefill fields from a configured device."
+msgstr "使用此面板执行一次性操作，或从已配置设备预填字段。"
+
+msgid "Used only for wake requests"
+msgstr "仅用于唤醒请求"
+
+msgid "Wake"
+msgstr "唤醒"
+
+msgid "Wake Interface"
+msgstr "唤醒接口"
+
+msgid "Wake Selected"
+msgstr "唤醒所选"
+
+msgid "Wake on LAN Plus"
+msgstr "Wake on LAN Plus"
+
+msgid "Waking host"
+msgstr "正在唤醒主机"
 
 msgid "Waking host failed"
 msgstr "唤醒主机失败"
 
-msgid "Shutting down host failed"
-msgstr "关闭主机失败"
+msgid "Waking selected devices"
+msgstr "正在唤醒所选设备"
+
+msgid "etherwake is not installed!"
+msgstr "etherwake 未安装！"
+
+msgid "netcat is not installed!"
+msgstr "netcat 未安装！"

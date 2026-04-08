@@ -3,102 +3,257 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Language: en\n"
 
-# Page title and description
-msgid "Wake on LAN Plus"
-msgstr ""
-
-msgid "Wake on LAN Plus is a mechanism to boot and shutdown computers remotely in the local network."
-msgstr ""
-
-# Form fields - Action
 msgid "Action"
 msgstr ""
 
-msgid "Choose whether to wake up or shutdown the host"
+msgid "Actions"
 msgstr ""
 
-msgid "Wake up"
+msgid "Add Device"
 msgstr ""
 
-msgid "Shutdown"
-msgstr ""
-
-# Form fields - Network interface
-msgid "Network interface to use"
-msgstr ""
-
-msgid "Specifies the interface the WoL packet is sent on"
-msgstr ""
-
-# Form fields - Host
-msgid "Host to wake up or shutdown"
-msgstr ""
-
-msgid "Choose the host to control or enter a custom MAC address to use"
-msgstr ""
-
-# Form fields - Additional Data
 msgid "Additional Data"
 msgstr ""
 
-msgid "Enter 6-byte custom data (XX:XX:XX:XX:XX:XX).<br />If not specified for shutdown, defaults to FF:FF:FF:FF:FF:FF."
-msgstr ""
-
-# Form fields - Broadcast
-msgid "Send to broadcast address"
-msgstr ""
-
-# Form fields - UDP Port
-msgid "UDP Port for Shutdown"
-msgstr ""
-
-msgid "UDP port to send shutdown command (default: 9)"
-msgstr ""
-
-# Buttons
-msgid "Execute"
-msgstr ""
-
-msgid "Command executed successfully"
-msgstr ""
-
-# Success messages
-msgid "Waking host"
-msgstr ""
-
-msgid "Starting WoL utility…"
-msgstr ""
-
-msgid "Shutting down host"
+msgid "Cancel"
 msgstr ""
 
 msgid "Checking host reachability…"
 msgstr ""
 
-msgid "Sending shutdown command…"
+msgid "Command executed successfully"
 msgstr ""
 
-msgid "Shutdown request sent"
+msgid "Configured Device"
+msgstr ""
+
+msgid "Configured Devices"
+msgstr ""
+
+msgid "Configured devices are persistent. Current IP and status are enriched from OpenWrt host hints and reachability probes."
+msgstr ""
+
+msgid "Custom Input"
+msgstr ""
+
+msgid "Default Additional Data"
+msgstr ""
+
+msgid "Default Interface"
+msgstr ""
+
+msgid "Default UDP Port"
+msgstr ""
+
+msgid "Defaults"
+msgstr ""
+
+msgid "Defaults saved successfully."
+msgstr ""
+
+msgid "Delete"
+msgstr ""
+
+msgid "Delete device"
+msgstr ""
+
+msgid "Device"
+msgstr ""
+
+msgid "Device Inventory"
+msgstr ""
+
+msgid "Device Name"
+msgstr ""
+
+msgid "Device deleted successfully."
+msgstr ""
+
+msgid "Device saved successfully."
+msgstr ""
+
+msgid "Devices saved in luci-wolp device inventory"
+msgstr ""
+
+msgid "Disabled"
 msgstr ""
 
 msgid "Dismiss"
 msgstr ""
 
-# Error messages
-msgid "No target host specified!"
+msgid "Edit"
+msgstr ""
+
+msgid "Edit Device"
+msgstr ""
+
+msgid "Enabled"
+msgstr ""
+
+msgid "Enter a device name."
+msgstr ""
+
+msgid "Enter a valid IPv4 address."
+msgstr ""
+
+msgid "Enter a valid MAC address."
+msgstr ""
+
+msgid "Enter a valid UDP port."
+msgstr ""
+
+msgid "Enter valid additional data in MAC format."
+msgstr ""
+
+msgid "Execute"
+msgstr ""
+
+msgid "Failed"
+msgstr ""
+
+msgid "Failed to delete device"
+msgstr ""
+
+msgid "Failed to refresh device status"
+msgstr ""
+
+msgid "Failed to save defaults"
+msgstr ""
+
+msgid "Failed to save device"
+msgstr ""
+
+msgid "IPv4 Address"
+msgstr ""
+
+msgid "Include this device in dashboard actions"
+msgstr ""
+
+msgid "MAC Address"
+msgstr ""
+
+msgid "Manage configured wake devices, inspect their current reachability, and trigger wake or shutdown actions without leaving the page."
+msgstr ""
+
+msgid "Manual Operation"
+msgstr ""
+
+msgid "No IPv4 address available for shutdown target. Ensure the host is online or has a host hint entry."
+msgstr ""
+
+msgid "No devices have been configured yet. Add a device to build a persistent wake inventory."
+msgstr ""
+
+msgid "No probeable IPv4 address is currently known"
+msgstr ""
+
+msgid "Offline"
+msgstr ""
+
+msgid "Online"
+msgstr ""
+
+msgid "Optional. Falls back to the default interface when present"
+msgstr ""
+
+msgid "Optional. Used for shutdown and reachability checks"
+msgstr ""
+
+msgid "Ping reachable with a known IPv4 address"
+msgstr ""
+
+msgid "Refresh Status"
+msgstr ""
+
+msgid "Refreshing device status"
+msgstr ""
+
+msgid "Required for shutdown when no current host hint is available"
+msgstr ""
+
+msgid "Resolved from host hints"
+msgstr ""
+
+msgid "Save"
+msgstr ""
+
+msgid "Save Defaults"
+msgstr ""
+
+msgid "Select at least one enabled device to wake."
+msgstr ""
+
+msgid "Send to broadcast address"
+msgstr ""
+
+msgid "Sending shutdown command…"
+msgstr ""
+
+msgid "Shutdown"
+msgstr ""
+
+msgid "Shutdown request sent"
+msgstr ""
+
+msgid "Shutting down host"
+msgstr ""
+
+msgid "Shutting down host failed"
+msgstr ""
+
+msgid "Starting WoL utility…"
+msgstr ""
+
+msgid "Status"
+msgstr ""
+
+msgid "Stored IPv4 exists but ping probe failed"
+msgstr ""
+
+msgid "Success"
+msgstr ""
+
+msgid "The selected device does not have a valid MAC address."
+msgstr ""
+
+msgid "These values prefill new devices and manual operations. Device-level values override defaults."
+msgstr ""
+
+msgid "UDP Port"
+msgstr ""
+
+msgid "Unknown"
+msgstr ""
+
+msgid "Use this panel for one-off operations or to prefill fields from a configured device."
+msgstr ""
+
+msgid "Used only for wake requests"
+msgstr ""
+
+msgid "Wake"
+msgstr ""
+
+msgid "Wake Interface"
+msgstr ""
+
+msgid "Wake Selected"
+msgstr ""
+
+msgid "Wake on LAN Plus"
+msgstr ""
+
+msgid "Waking host"
+msgstr ""
+
+msgid "Waking host failed"
+msgstr ""
+
+msgid "Waking selected devices"
 msgstr ""
 
 msgid "etherwake is not installed!"
 msgstr ""
 
 msgid "netcat is not installed!"
-msgstr ""
-
-msgid "Waking host failed"
-msgstr ""
-
-msgid "Shutting down host failed"
-msgstr ""
-
-msgid "Device appears offline or unreachable"
 msgstr ""
