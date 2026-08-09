@@ -31,6 +31,10 @@ function validInterface(value) {
 	return value && match(value, /^[A-Za-z0-9_.:-]+$/);
 }
 
+function wantsBroadcast(value) {
+	return value == true || value == '1' || value == 'true';
+}
+
 function runEtherwake(args, extraData) {
 	const parts = [shellquote(etherwake), shellquote('-D')];
 
@@ -43,7 +47,7 @@ function runEtherwake(args, extraData) {
 
 	parts.push(shellquote('-i'));
 	parts.push(shellquote(args.interface));
-	if (args.broadcast)
+	if (wantsBroadcast(args.broadcast))
 		parts.push(shellquote('-b'));
 	if (extraData) {
 		parts.push(shellquote('-p'));
