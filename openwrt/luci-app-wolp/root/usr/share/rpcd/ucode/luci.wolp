@@ -7,7 +7,7 @@ import { access, popen } from 'fs';
 const etherwake = '/usr/bin/etherwake';
 
 function shellquote(value) {
-	return "'" + replace(value, "'", "'\\''") + "'";
+	return "'" + replace(value, /'/g, "'\\''") + "'";
 }
 
 function resultFromCommand(command) {
