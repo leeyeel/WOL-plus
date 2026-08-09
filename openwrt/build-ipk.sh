@@ -2,7 +2,7 @@
 # Build ipk packages for luci-app-wolp (multiple architectures)
 #
 # IPK 包说明：
-# - 依赖 luci-base、etherwake 和 netcat 包
+# - 依赖 luci-base 和 etherwake 包
 # - 使用标准 LuCI 应用结构
 # - 支持中文翻译
 # - 支持多架构打包
@@ -74,13 +74,13 @@ build_ipk() {
     cat > "$PACKAGE_DIR/CONTROL/control" << EOF
 Package: luci-app-wolp
 Version: $VERSION
-Depends: libc, luci-base, etherwake, netcat, openssl-util, rpcd-mod-ucode, ucode-mod-fs
+Depends: libc, luci-base, etherwake, rpcd-mod-ucode, ucode-mod-fs
 Section: luci
 Architecture: $ARCH
 Maintainer: leeyeel <mumuli52@gmail.com>
 Description: LuCI Support for Wake-on-LAN Plus
  Wake on LAN Plus is a mechanism to boot and shutdown computers remotely.
- Supports standard wake packets and authenticated UDP control with acknowledgement.
+ Sends raw Ethernet Magic Packets for wake and shutdown.
 EOF
 
     # --------------------------------------------------
@@ -171,13 +171,7 @@ EOF
        "$PACKAGE_DIR/usr/share/rpcd/ucode/"
     chmod 755 "$PACKAGE_DIR/usr/share/rpcd/ucode/luci.wolp"
 
-    # 6. Authenticated UDP control helper
-    mkdir -p "$PACKAGE_DIR/usr/libexec"
-    cp "$SOURCE_DIR/root/usr/libexec/wolp-control" \
-       "$PACKAGE_DIR/usr/libexec/"
-    chmod 755 "$PACKAGE_DIR/usr/libexec/wolp-control"
-
-    # 7. 不编译翻译文件（主包只包含英文）
+    # 6. 不编译翻译文件（主包只包含英文）
     echo "Skipping translation files (English only)..."
 
     # --------------------------------------------------
@@ -380,7 +374,7 @@ echo ""
 echo "Install on OpenWrt:"
 echo "  1. Install dependencies:"
 echo "     opkg update"
-echo "     opkg install luci-base etherwake netcat openssl-util rpcd-mod-ucode ucode-mod-fs"
+echo "     opkg install luci-base etherwake rpcd-mod-ucode ucode-mod-fs"
 echo ""
 echo "  2. Install main package:"
 echo "     opkg install /tmp/luci-app-wolp_*_<arch>.ipk"
@@ -400,7 +394,7 @@ echo ""
 echo "Install on OpenWrt:"
 echo "  1. 安装依赖:"
 echo "     opkg update"
-echo "     opkg install luci-base etherwake netcat openssl-util rpcd-mod-ucode ucode-mod-fs"
+echo "     opkg install luci-base etherwake rpcd-mod-ucode ucode-mod-fs"
 echo ""
 echo "  2. 拷贝 IPK 到 OpenWrt:"
 echo "     scp release/${PACKAGE_NAME}_*_<arch>.ipk root@<openwrt-ip>:/tmp/"

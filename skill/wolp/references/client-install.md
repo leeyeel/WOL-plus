@@ -1,78 +1,46 @@
 # Client Install And Config
 
-Use this reference only when the user needs to install or configure the WOL-plus receiver.
+Use this reference when installing or configuring the WOL-plus receiver.
 
-Project links:
+The Client captures raw Ethernet frames. It must be on the same Layer-2 network as the sender.
 
-- Project: `https://github.com/leeyeel/WOL-plus`
-- Releases: `https://github.com/leeyeel/WOL-plus/releases`
+- Linux requires `libpcap` and packet-capture permission. The packaged `wolp.service` runs as root.
+- Windows requires Npcap before the WOL-plus Client starts.
+- The default Web UI is `http://<client-ip>:2025`, with initial credentials `admin` / `admin123`.
 
-Receiver role:
+Install a matching package from [Releases](https://github.com/leeyeel/WOL-plus/releases):
 
-- The client receives shutdown packets and can optionally serve the Web UI.
-- Default Web UI address when installed: `http://<client-ip>:2025`
-- Default credentials when Web UI is installed: `admin` / `admin123`
-- Backend-only mode disables the HTTP server:
-  - run `wolp --backend-only`
-  - Web UI assets may be omitted
-  - configure `/usr/local/etc/wolp/wolp.json` directly
+```bash
+sudo dpkg -i wolp-client-with-webui_<version>_amd64.deb
+sudo systemctl status wolp.service
+```
 
-Agent install procedure:
+For RPM systems:
 
-1. Confirm the minimum missing inputs:
-   - target OS: Windows, Debian/Ubuntu, or RPM-based Linux
-   - target architecture when relevant: `amd64` or `arm64`/`aarch64`
-   - whether the agent can install directly on the target machine or must only provide instructions
-   - target machine IP if Web UI verification matters
-2. Choose the install source:
-   - prefer a matching package from Releases
-   - prefer the Debian package when the agent can reach a Debian/Ubuntu host over SSH
-   - only build from this repo when a needed package is unavailable from Releases
-3. Install by platform:
-   - Windows:
-     - download `installer_windows_amd64_v<version>.exe`
-     - if the agent cannot control the desktop session, tell the user to run it manually
-   - Debian/Ubuntu:
-     ```bash
-     sudo dpkg -i wolp-client_<version>_amd64.deb
-     sudo systemctl status wolp.service
-     ```
-   - RPM Linux:
-     ```bash
-     sudo rpm -ivh wolp-client-<version>-1.x86_64.rpm
-     sudo systemctl status wolp.service
-     ```
-4. Debian build fallback:
-   ```bash
-   bash scripts/build-deb.sh --without-webui amd64 0.0.0-dev
-   sudo dpkg -i release/client/wolp-client_0.0.0-dev_amd64.deb
-   sudo systemctl status wolp.service
-   ```
-5. Verify after install:
-   - confirm `wolp.service` is active
-   - if Web UI is installed, confirm it responds at `http://<client-ip>:2025`
-   - if backend-only mode is enabled, do not expect port `2025` to listen
-   - if Web UI is enabled, tell the user to change the default password after first login
+```bash
+sudo rpm -ivh wolp-client-with-webui-<version>-1.x86_64.rpm
+sudo systemctl status wolp.service
+```
 
-Receiver config:
+The Linux configuration is `/usr/local/etc/wolp/wolp.json`:
 
-- Config path: `/usr/local/etc/wolp/wolp.json`
-- Binary path: `/usr/local/bin/wolp`
-- Web UI path: `/usr/share/wolp/webui` when installed
-- Service name: `wolp.service`
-- Default `control_port`: `20250`
-- `control_secret`: generated on first Client startup; copy it to the sender
-- Default `shutdown_delay`: `60`
-- Default HTTP UI port: `2025`
+```json
+{
+  "mac_address": "AA:BB:CC:DD:EE:FF",
+  "interface": "eno1",
+  "extra_data": "12:34:56:78:9A:BC",
+  "shutdown_delay": "60",
+  "username": "admin",
+  "password": "admin123"
+}
+```
 
-When configuring shutdown support:
+`extra_data` must match the sender's shutdown discriminator. Standard wake frames contain no discriminator and therefore do not start shutdown.
 
-- Set `mac_address` to the receiver machine MAC that should match the sender packet.
-- Set `control_port` to match the sender `--port`.
-- Copy `control_secret` to the sender `--control-secret` or device inventory.
-- Set `shutdown_delay`, `username`, and `password` as requested.
+For capture-only operation:
 
-Keep protocol roles clear:
+```bash
+wolp --backend-only
+```
 
-- Sender-side `interface` matters only for `wake`.
-- Receiver-side `control_port` and `control_secret` matter only for authenticated shutdown control.
+This mode does not start the Web UI. Configure the JSON file directly.

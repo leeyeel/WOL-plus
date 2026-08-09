@@ -44,11 +44,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 if [[ "$INCLUDE_WEBUI" -eq 1 ]]; then
     VARIANT="with-webui"
-    PKG_DESCRIPTION="UDP-based shutdown listener with bundled web UI for Wake On LAN Plus."
+    PKG_DESCRIPTION="Raw Ethernet-frame shutdown listener with bundled web UI for Wake On LAN Plus."
     OTHER_PKG_NAME="wolp-client-backend-only"
 else
     VARIANT="backend-only"
-    PKG_DESCRIPTION="UDP-based shutdown listener without bundled web UI for Wake On LAN Plus."
+    PKG_DESCRIPTION="Raw Ethernet-frame shutdown listener without bundled web UI for Wake On LAN Plus."
     OTHER_PKG_NAME="wolp-client-with-webui"
 fi
 
@@ -70,7 +70,11 @@ if [[ "$INCLUDE_WEBUI" -eq 1 ]]; then
 fi
 
 pushd "$REPO_ROOT/client/src" >/dev/null
-GOOS=linux GOARCH="$ARCH" CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o "$BIN_DIR/wolp" .
+if [[ "$ARCH" == "arm64" && "$(go env GOHOSTARCH)" != "arm64" ]]; then
+    : "${CC:=aarch64-linux-gnu-gcc}"
+    export CC
+fi
+GOOS=linux GOARCH="$ARCH" CGO_ENABLED=1 go build -trimpath -ldflags "-s -w" -o "$BIN_DIR/wolp" .
 popd >/dev/null
 
 install -m 0600 "$REPO_ROOT/client/wolp.json" "$ETC_DIR/wolp.json"
@@ -90,7 +94,7 @@ Section: net
 Priority: optional
 Architecture: $ARCH
 Maintainer: leeyeel <mumuli52@gmail.com>
-Depends: systemd
+Depends: systemd, libpcap0.8
 Provides: wolp-client
 Conflicts: $OTHER_PKG_NAME
 Replaces: $OTHER_PKG_NAME

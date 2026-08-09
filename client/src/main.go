@@ -2,13 +2,9 @@ package main
 
 import (
 	"context"
-	cryptorand "crypto/rand"
-	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"net/http"
@@ -29,8 +25,7 @@ import (
 type Config struct {
 	MacAddress    string `json:"mac_address"`
 	Interface     string `json:"interface"`
-	ControlPort   string `json:"control_port"`
-	ControlSecret string `json:"control_secret"`
+	ExtraData     string `json:"extra_data"`
 	ShutdownDelay string `json:"shutdown_delay"`
 	Username      string `json:"username"`
 	Password      string `json:"password"`
@@ -39,8 +34,7 @@ type Config struct {
 type ConfigPatch struct {
 	MacAddress    *string `json:"mac_address"`
 	Interface     *string `json:"interface"`
-	ControlPort   *string `json:"control_port"`
-	ControlSecret *string `json:"control_secret"`
+	ExtraData     *string `json:"extra_data"`
 	ShutdownDelay *string `json:"shutdown_delay"`
 	Username      *string `json:"username"`
 	Password      *string `json:"password"`
@@ -51,7 +45,7 @@ var (
 	configFilePath string
 	webuiPath      string
 
-	// 用于控制 UDP 监听 goroutine 的退出
+	// Used to stop the raw Ethernet capture goroutine.
 	listenerCancel context.CancelFunc
 	listenerWg     sync.WaitGroup
 	listenerMutex  sync.Mutex
@@ -89,7 +83,7 @@ func getConfigPath() (string, string) {
 }
 
 func parseRuntimeOptions() runtimeOptions {
-	backendOnly := flag.Bool("backend-only", false, "run the UDP listener without starting the Web UI or HTTP server")
+	backendOnly := flag.Bool("backend-only", false, "run the Ethernet frame listener without starting the Web UI or HTTP server")
 	flag.Parse()
 
 	return runtimeOptions{
@@ -126,12 +120,11 @@ func loadConfig(path string) {
 		if err != nil {
 			log.Fatalf("Error: %v", err)
 		}
-		config.ControlPort = "20250"
-		config.ControlSecret = generateControlSecret()
+		config.ExtraData = "FF:FF:FF:FF:FF:FF"
 		config.ShutdownDelay = "60"
 		config.Username = "admin"
 		config.Password = "admin123"
-		log.Printf("Initial config: interface=%s mac=%s control_port=%s", config.Interface, config.MacAddress, config.ControlPort)
+		log.Printf("Initial config: interface=%s mac=%s extra_data=%s", config.Interface, config.MacAddress, config.ExtraData)
 		if err := saveConfig(path, config); err != nil {
 			log.Fatalf("Failed to save config: %v", err)
 		}
@@ -153,31 +146,16 @@ func loadConfig(path string) {
 	if err != nil {
 		log.Fatalf("Failed to validate mac_address: %v", err)
 	}
-	config.ControlPort, err = normalizeControlPort(config.ControlPort)
+	config.ExtraData, err = normalizeExtraData(config.ExtraData)
 	if err != nil {
-		log.Fatalf("Failed to validate control_port: %v", err)
-	}
-	migratedControlConfig := false
-	if config.ControlSecret == "" {
-		config.ControlSecret = generateControlSecret()
-		migratedControlConfig = true
-	} else {
-		config.ControlSecret, err = normalizeControlSecret(config.ControlSecret)
-		if err != nil {
-			log.Fatalf("Failed to validate control_secret: %v", err)
-		}
+		log.Fatalf("Failed to validate extra_data: %v", err)
 	}
 	config.ShutdownDelay, err = normalizeShutdownDelay(config.ShutdownDelay)
 	if err != nil {
 		log.Fatalf("Failed to validate shutdown_delay: %v", err)
 	}
-	if migratedControlConfig {
-		if err := saveConfig(path, config); err != nil {
-			log.Fatalf("Failed to migrate control configuration: %v", err)
-		}
-	}
-	if err := os.Chmod(path, 0600); err != nil {
-		log.Printf("Failed to restrict config file permissions: %v", err)
+	if err := saveConfig(path, config); err != nil {
+		log.Fatalf("Failed to migrate Ethernet frame configuration: %v", err)
 	}
 }
 
@@ -195,10 +173,9 @@ func saveConfig(path string, cfg Config) error {
 }
 
 type listenerConfig struct {
-	Interface     string
-	MacAddress    string
-	ControlPort   string
-	ControlSecret string
+	Interface  string
+	MacAddress string
+	ExtraData  string
 }
 
 func normalizeMACAddress(value string) (string, error) {
@@ -206,40 +183,24 @@ func normalizeMACAddress(value string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if len(hardwareAddr) != 6 {
+		return "", fmt.Errorf("must be a 6-byte MAC address")
+	}
 	return strings.ToLower(hardwareAddr.String()), nil
 }
 
-func normalizeControlPort(value string) (string, error) {
+func normalizeExtraData(value string) (string, error) {
 	value = strings.TrimSpace(value)
 	if value == "" {
-		return "20250", nil
+		return "FF:FF:FF:FF:FF:FF", nil
 	}
 
-	port, err := strconv.Atoi(value)
-	if err != nil || port < 1024 || port > 65535 {
-		return "", fmt.Errorf("must be a number between 1024 and 65535")
+	address, err := net.ParseMAC(value)
+	if err != nil || len(address) != 6 {
+		return "", fmt.Errorf("must be a 6-byte MAC-style hexadecimal value")
 	}
 
-	return strconv.Itoa(port), nil
-}
-
-func generateControlSecret() string {
-	secret := make([]byte, 32)
-	if _, err := cryptorand.Read(secret); err != nil {
-		log.Fatalf("Failed to generate control secret: %v", err)
-	}
-	return hex.EncodeToString(secret)
-}
-
-func normalizeControlSecret(value string) (string, error) {
-	value = strings.ToLower(strings.TrimSpace(value))
-	if len(value) != 64 {
-		return "", fmt.Errorf("must be a 64-character hexadecimal value")
-	}
-	if _, err := hex.DecodeString(value); err != nil {
-		return "", fmt.Errorf("must be a 64-character hexadecimal value")
-	}
-	return value, nil
+	return strings.ToUpper(address.String()), nil
 }
 
 func normalizeShutdownDelay(value string) (string, error) {
@@ -265,11 +226,8 @@ func applyConfigPatch(current Config, patch ConfigPatch) (Config, error) {
 	if patch.Interface != nil {
 		next.Interface = strings.TrimSpace(*patch.Interface)
 	}
-	if patch.ControlPort != nil {
-		next.ControlPort = strings.TrimSpace(*patch.ControlPort)
-	}
-	if patch.ControlSecret != nil {
-		next.ControlSecret = strings.TrimSpace(*patch.ControlSecret)
+	if patch.ExtraData != nil {
+		next.ExtraData = strings.TrimSpace(*patch.ExtraData)
 	}
 	if patch.ShutdownDelay != nil {
 		next.ShutdownDelay = strings.TrimSpace(*patch.ShutdownDelay)
@@ -296,13 +254,9 @@ func applyConfigPatch(current Config, patch ConfigPatch) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("invalid mac_address: %w", err)
 	}
-	next.ControlPort, err = normalizeControlPort(next.ControlPort)
+	next.ExtraData, err = normalizeExtraData(next.ExtraData)
 	if err != nil {
-		return Config{}, fmt.Errorf("invalid control_port: %w", err)
-	}
-	next.ControlSecret, err = normalizeControlSecret(next.ControlSecret)
-	if err != nil {
-		return Config{}, fmt.Errorf("invalid control_secret: %w", err)
+		return Config{}, fmt.Errorf("invalid extra_data: %w", err)
 	}
 	next.ShutdownDelay, err = normalizeShutdownDelay(next.ShutdownDelay)
 	if err != nil {
@@ -317,10 +271,9 @@ func currentListenerConfig() listenerConfig {
 	defer configMutex.RUnlock()
 
 	return listenerConfig{
-		Interface:     config.Interface,
-		MacAddress:    config.MacAddress,
-		ControlPort:   config.ControlPort,
-		ControlSecret: config.ControlSecret,
+		Interface:  config.Interface,
+		MacAddress: config.MacAddress,
+		ExtraData:  config.ExtraData,
 	}
 }
 
@@ -340,7 +293,7 @@ func restartListeners() {
 	listenerCancel = cancel
 
 	listenerWg.Add(1)
-	go startUDPListener(listenerCtx, cfg)
+	go startPacketCapture(listenerCtx, cfg)
 }
 
 func stopListeners() {
@@ -354,98 +307,7 @@ func stopListeners() {
 	}
 }
 
-// getNetworkDevice 获取当前正在使用的网卡，并返回其名称和 MAC 地址
-func getNetworkDevice() (string, string, error) {
-	netIfaces, err := net.Interfaces()
-	if err != nil {
-		return "", "", fmt.Errorf("could not get network interface: %v", err)
-	}
-
-	for _, iface := range netIfaces {
-		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
-			continue
-		}
-		if len(iface.HardwareAddr) == 0 {
-			continue
-		}
-
-		addrs, err := iface.Addrs()
-		if err != nil {
-			continue
-		}
-
-		var validIPs []net.IP
-		for _, addr := range addrs {
-			ipNet, ok := addr.(*net.IPNet)
-			if !ok || ipNet.IP == nil || ipNet.IP.IsLoopback() {
-				continue
-			}
-
-			ip4 := ipNet.IP.To4()
-			if ip4 == nil {
-				continue
-			}
-
-			validIPs = append(validIPs, ip4)
-		}
-
-		if len(validIPs) > 0 {
-			log.Printf("Select network device: %s - MAC: %s - IPs: %v", iface.Name, iface.HardwareAddr.String(), validIPs)
-			return iface.Name, iface.HardwareAddr.String(), nil
-		}
-	}
-
-	return "", "", fmt.Errorf("could not select network interface")
-}
-
-func startUDPListener(ctx context.Context, cfg listenerConfig) {
-	defer listenerWg.Done()
-
-	conn, err := net.ListenPacket("udp4", ":"+cfg.ControlPort)
-	if err != nil {
-		log.Printf("Failed to listen on UDP control port %s: %v", cfg.ControlPort, err)
-		return
-	}
-	defer conn.Close()
-
-	buf := make([]byte, 2048)
-
-	for {
-		_ = conn.SetReadDeadline(time.Now().Add(time.Second))
-		n, addr, err := conn.ReadFrom(buf)
-		if err != nil {
-			if ne, ok := err.(net.Error); ok && ne.Timeout() {
-				select {
-				case <-ctx.Done():
-					log.Println("Stop UDP listener goroutine")
-					return
-				default:
-					continue
-				}
-			}
-
-			if errors.Is(err, net.ErrClosed) || errors.Is(err, io.EOF) {
-				return
-			}
-
-			log.Printf("UDP read error: %v", err)
-			continue
-		}
-
-		response, accepted := handleControlPacket(buf[:n], cfg, time.Now())
-		if !accepted {
-			continue
-		}
-
-		if _, err := conn.WriteTo(response, addr); err != nil {
-			log.Printf("Failed to send UDP control response to %s: %v", addr.String(), err)
-			continue
-		}
-		log.Printf("Processed authenticated UDP control request from %s", addr.String())
-	}
-}
-
-func initiateShutdown() (string, int) {
+func initiateShutdown() {
 	configMutex.RLock()
 	shutdownDelay := config.ShutdownDelay
 	configMutex.RUnlock()
@@ -469,7 +331,7 @@ func initiateShutdown() (string, int) {
 
 	if shutdownTimer != nil {
 		log.Println("Shutdown already scheduled.")
-		return "ALREADY_SCHEDULED", int(shutdownDuration / time.Second)
+		return
 	}
 
 	num, err := strconv.Atoi(shutdownDelay)
@@ -496,7 +358,6 @@ func initiateShutdown() (string, int) {
 		executeShutdown()
 	}()
 
-	return "SCHEDULED", num
 }
 
 // 取消关机任务
@@ -628,15 +489,13 @@ func startHTTPServer() {
 		safeConfig := struct {
 			MacAddress    string `json:"mac_address"`
 			Interface     string `json:"interface"`
-			ControlPort   string `json:"control_port"`
-			ControlSecret string `json:"control_secret"`
+			ExtraData     string `json:"extra_data"`
 			ShutdownDelay string `json:"shutdown_delay"`
 			Username      string `json:"username"`
 		}{
 			MacAddress:    config.MacAddress,
 			Interface:     config.Interface,
-			ControlPort:   config.ControlPort,
-			ControlSecret: config.ControlSecret,
+			ExtraData:     config.ExtraData,
 			ShutdownDelay: config.ShutdownDelay,
 			Username:      config.Username,
 		}
@@ -695,7 +554,7 @@ func main() {
 		terminate()
 	}()
 
-	// 5. 阻塞等待 goroutine 结束 (HTTP + PacketCapture)
+	// 5. Block until the HTTP server and Ethernet capture goroutine stop.
 	serverWg.Wait()
 	listenerWg.Wait()
 	log.Println("goroutine terminated.")

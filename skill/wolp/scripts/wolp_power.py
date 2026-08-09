@@ -2,29 +2,21 @@
 
 import argparse
 from datetime import datetime, timezone
-import hashlib
-import hmac
-import ipaddress
 import json
 import os
-import secrets
 import socket
 import struct
 import sys
-import time
 from pathlib import Path
 
 
-DEFAULT_CONTROL_PORT = 20250
-CONTROL_PROTOCOL = "WOLP/1"
-CONTROL_STATUS = "STATUS"
-CONTROL_SHUTDOWN = "SHUTDOWN"
+DEFAULT_EXTRA_DATA = "FF:FF:FF:FF:FF:FF"
 SYNC_BYTES = b"\xff" * 6
 ETHERTYPE_WOL = 0x0842
 ETH_BROADCAST = "FF:FF:FF:FF:FF:FF"
 NET_CLASS_DIR = Path("/sys/class/net")
 DEFAULTS = {
-    "control_port": DEFAULT_CONTROL_PORT,
+    "extra_data": DEFAULT_EXTRA_DATA,
 }
 SKILL_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_DEVICE_TEMPLATE = SKILL_DIR / "assets" / "devices.example.json"
@@ -61,34 +53,6 @@ def mac_to_bytes(value: str) -> bytes:
     return bytes.fromhex(normalize_mac(value).replace(":", ""))
 
 
-def normalize_host(value: str) -> str:
-    return str(ipaddress.IPv4Address(value.strip()))
-
-
-def normalize_port(value: int) -> int:
-    if not 1 <= value <= 65535:
-        raise ValueError(f"invalid UDP port: {value}")
-    return value
-
-
-def normalize_control_port(value: int) -> int:
-    port = normalize_port(value)
-    if port < 1024:
-        raise ValueError(f"control UDP port must be between 1024 and 65535: {value}")
-    return port
-
-
-def normalize_control_secret(value: str) -> str:
-    secret = value.strip().lower()
-    if len(secret) != 64:
-        raise ValueError("control secret must be a 64-character hexadecimal value")
-    try:
-        bytes.fromhex(secret)
-    except ValueError as exc:
-        raise ValueError("control secret must be a 64-character hexadecimal value") from exc
-    return secret
-
-
 def normalize_interface(value: str) -> str:
     interface = value.strip()
     if not interface:
@@ -107,43 +71,28 @@ def load_inventory(path: Path) -> dict:
 
     if not isinstance(inventory, dict):
         raise ValueError(f"device file must contain a JSON object: {path}")
-
-    defaults = inventory.get("defaults", {})
-    devices = inventory.get("devices", {})
-
-    if not isinstance(defaults, dict):
+    if not isinstance(inventory.get("defaults", {}), dict):
         raise ValueError(f"inventory defaults must be an object: {path}")
-    if not isinstance(devices, dict):
+    if not isinstance(inventory.get("devices", {}), dict):
         raise ValueError(f"inventory devices must be an object: {path}")
 
     return inventory
 
 
 def make_default_inventory() -> dict:
-    return {
-        "defaults": dict(DEFAULTS),
-        "devices": {},
-    }
+    return {"defaults": dict(DEFAULTS), "devices": {}}
 
 
 def load_or_init_inventory(path: Path) -> dict:
     try:
         inventory = load_inventory(path)
-    except ValueError as exc:
+    except ValueError:
         if path.exists():
             raise
         inventory = make_default_inventory()
 
-    defaults = inventory.get("defaults", {})
-    devices = inventory.get("devices", {})
-
-    if not isinstance(defaults, dict):
-        raise ValueError(f"inventory defaults must be an object: {path}")
-    if not isinstance(devices, dict):
-        raise ValueError(f"inventory devices must be an object: {path}")
-
-    inventory["defaults"] = defaults
-    inventory["devices"] = devices
+    inventory.setdefault("defaults", {})
+    inventory.setdefault("devices", {})
     return inventory
 
 
@@ -153,35 +102,14 @@ def resolve_device_file(device_file: str | None) -> Path:
     return default_device_file()
 
 
-def resolve_device_entry(device: str, device_file: str | None) -> tuple[dict, Path]:
-    path = resolve_device_file(device_file)
-    inventory = load_or_init_inventory(path)
-    defaults = inventory.get("defaults", {})
-    devices = inventory.get("devices", {})
-
-    if device not in devices:
-        raise ValueError(f"device {device!r} not found in {path}")
-
-    entry = devices[device]
-    if not isinstance(entry, dict):
-        raise ValueError(f"device entry for {device!r} must be an object")
-
-    resolved = dict(defaults)
-    resolved.update(entry)
-    resolved["device"] = device
-    return resolved, path
-
-
 def resolve_optional_device_entry(device: str | None, device_file: str | None) -> tuple[dict, Path | None]:
     if not device:
         return {}, None
 
     path = resolve_device_file(device_file)
     inventory = load_or_init_inventory(path)
-    defaults = inventory.get("defaults", {})
-    devices = inventory.get("devices", {})
-
-    entry = devices.get(device)
+    defaults = inventory["defaults"]
+    entry = inventory["devices"].get(device)
     if entry is None:
         return {"device": device, **dict(defaults)}, path
     if not isinstance(entry, dict):
@@ -191,12 +119,6 @@ def resolve_optional_device_entry(device: str | None, device_file: str | None) -
     resolved.update(entry)
     resolved["device"] = device
     return resolved, path
-
-
-def resolve_record_path(device_file: str | None, resolved_path: Path | None = None) -> Path:
-    if resolved_path is not None:
-        return resolved_path
-    return resolve_device_file(device_file)
 
 
 def prefer(cli_value, inventory_value, fallback=None):
@@ -209,34 +131,25 @@ def prefer(cli_value, inventory_value, fallback=None):
 
 def normalize_inventory_fields(entry: dict) -> dict:
     normalized = {}
-
     if "mac" in entry and entry["mac"] is not None:
         normalized["mac"] = normalize_mac(str(entry["mac"]))
-    if "host" in entry and entry["host"] is not None:
-        normalized["host"] = normalize_host(str(entry["host"]))
     if "interface" in entry and entry["interface"] is not None:
         normalized["interface"] = normalize_interface(str(entry["interface"]))
-    if "control_port" in entry and entry["control_port"] is not None:
-        normalized["control_port"] = normalize_control_port(int(entry["control_port"]))
-    if "control_secret" in entry and entry["control_secret"] is not None:
-        normalized["control_secret"] = normalize_control_secret(str(entry["control_secret"]))
+    if "extra_data" in entry and entry["extra_data"] is not None:
+        normalized["extra_data"] = normalize_mac(str(entry["extra_data"]))
     if "last_action" in entry and entry["last_action"] is not None:
         normalized["last_action"] = str(entry["last_action"])
     if "last_success_at" in entry and entry["last_success_at"] is not None:
         normalized["last_success_at"] = str(entry["last_success_at"])
-
     return normalized
 
 
 def find_device_name_by_mac(devices: dict, mac: str) -> str | None:
     for name, entry in devices.items():
-        if not isinstance(entry, dict):
-            continue
-        entry_mac = entry.get("mac")
-        if entry_mac is None:
+        if not isinstance(entry, dict) or entry.get("mac") is None:
             continue
         try:
-            if normalize_mac(str(entry_mac)) == mac:
+            if normalize_mac(str(entry["mac"])) == mac:
                 return name
         except ValueError:
             continue
@@ -255,40 +168,31 @@ def save_inventory(path: Path, inventory: dict) -> None:
 
 
 def update_inventory_record(
-    *,
-    action: str,
-    device: str | None,
-    device_file: str | None,
-    resolved_path: Path | None,
-    fields: dict,
+    *, action: str, device: str | None, device_file: str | None, resolved_path: Path | None, fields: dict
 ) -> tuple[str, Path]:
-    path = resolve_record_path(device_file, resolved_path)
+    path = resolved_path or resolve_device_file(device_file)
     inventory = load_or_init_inventory(path)
     devices = inventory["devices"]
-
     normalized_fields = normalize_inventory_fields(fields)
     mac = normalized_fields.get("mac")
 
-    record_name = device
-    if record_name is None and mac is not None:
-        record_name = find_device_name_by_mac(devices, mac)
+    record_name = device or (find_device_name_by_mac(devices, mac) if mac else None)
     if record_name is None:
         if mac is None:
             raise ValueError("inventory update requires a mac address")
         record_name = make_device_name(mac)
 
-    existing_entry = devices.get(record_name, {})
-    if existing_entry is None:
-        existing_entry = {}
-    if not isinstance(existing_entry, dict):
+    existing = devices.get(record_name, {})
+    if existing is None:
+        existing = {}
+    if not isinstance(existing, dict):
         raise ValueError(f"device entry for {record_name!r} must be an object")
 
-    updated_entry = dict(existing_entry)
-    updated_entry.update(normalized_fields)
-    updated_entry["last_action"] = action
-    updated_entry["last_success_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
-    devices[record_name] = updated_entry
+    updated = dict(existing)
+    updated.update(normalized_fields)
+    updated["last_action"] = action
+    updated["last_success_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    devices[record_name] = updated
     save_inventory(path, inventory)
     return record_name, path
 
@@ -306,20 +210,7 @@ def get_interface_mac(interface: str) -> str:
 
 
 def is_virtual_interface(name: str) -> bool:
-    lowered = name.lower()
-    virtual_prefixes = (
-        "br-",
-        "docker",
-        "veth",
-        "virbr",
-        "vmnet",
-        "tailscale",
-        "tun",
-        "tap",
-        "zt",
-        "wg",
-    )
-    return lowered.startswith(virtual_prefixes)
+    return name.lower().startswith(("br-", "docker", "veth", "virbr", "vmnet", "tailscale", "tun", "tap", "zt", "wg"))
 
 
 def interface_preference(name: str, operstate: str, mac: str | None) -> tuple[int, bool, str]:
@@ -328,26 +219,22 @@ def interface_preference(name: str, operstate: str, mac: str | None) -> tuple[in
     if is_virtual_interface(name):
         return 3, False, "virtual or bridge interface"
     if operstate == "up" and mac and mac != "00:00:00:00:00:00":
-        return 0, True, "preferred for wake"
+        return 0, True, "preferred for Ethernet frames"
     if operstate == "up":
         return 1, False, "up but missing a usable hardware MAC"
     return 2, False, "interface is not up"
 
 
 def read_interface_summary(path: Path) -> dict:
-    name = path.name
     raw_mac = (path / "address").read_text(encoding="utf-8").strip()
     operstate = (path / "operstate").read_text(encoding="utf-8").strip()
-
     try:
         mac = normalize_mac(raw_mac)
     except ValueError:
         mac = None
-
-    rank, preferred, reason = interface_preference(name, operstate, mac)
-
+    rank, preferred, reason = interface_preference(path.name, operstate, mac)
     return {
-        "name": name,
+        "name": path.name,
         "mac": mac,
         "operstate": operstate,
         "preferred": preferred,
@@ -357,58 +244,40 @@ def read_interface_summary(path: Path) -> dict:
 
 
 def list_interfaces() -> dict:
-    interfaces = []
-    net_dir = NET_CLASS_DIR
-
-    for path in sorted(net_dir.iterdir(), key=lambda item: item.name):
-        if not path.is_dir():
-            continue
-
-        interfaces.append(read_interface_summary(path))
-
+    interfaces = [read_interface_summary(path) for path in NET_CLASS_DIR.iterdir() if path.is_dir()]
     interfaces.sort(key=lambda item: (item["preference_rank"], item["name"]))
-
-    return {
-        "action": "list-interfaces",
-        "interfaces": interfaces,
-    }
+    return {"action": "list-interfaces", "interfaces": interfaces}
 
 
 def choose_auto_interface() -> dict:
-    interfaces = list_interfaces()["interfaces"]
-    for interface in interfaces:
+    for interface in list_interfaces()["interfaces"]:
         if interface["preferred"]:
             return interface
-
-    raise ValueError(
-        "no preferred wake interface found; run 'wake --list-interfaces' and choose an operstate=up physical LAN NIC"
-    )
+    raise ValueError("no preferred Ethernet interface found; use --list-interfaces and choose an active physical LAN NIC")
 
 
 def build_ethernet_frame(destination_mac: str, source_mac: str, ethertype: int, payload: bytes) -> bytes:
-    return (
-        mac_to_bytes(destination_mac)
-        + mac_to_bytes(source_mac)
-        + struct.pack("!H", ethertype)
-        + payload
-    )
+    return mac_to_bytes(destination_mac) + mac_to_bytes(source_mac) + struct.pack("!H", ethertype) + payload
 
 
-def wake_device(interface: str, mac: str, dry_run: bool) -> dict:
+def send_magic_frame(action: str, interface: str, mac: str, extra_data: str | None, dry_run: bool) -> dict:
     normalized_interface = normalize_interface(interface)
-    normalized_mac = normalize_mac(mac)
+    target_mac = normalize_mac(mac)
     source_mac = get_interface_mac(normalized_interface)
-    payload = build_magic_payload(mac_to_bytes(normalized_mac))
+    normalized_extra = normalize_mac(extra_data) if extra_data is not None else None
+    payload = build_magic_payload(mac_to_bytes(target_mac))
+    if normalized_extra is not None:
+        payload += mac_to_bytes(normalized_extra)
     frame = build_ethernet_frame(ETH_BROADCAST, source_mac, ETHERTYPE_WOL, payload)
 
     result = {
-        "action": "wake",
+        "action": action,
         "dry_run": dry_run,
         "interface": normalized_interface,
         "source_mac": source_mac,
         "destination_mac": ETH_BROADCAST,
         "ethertype": f"0x{ETHERTYPE_WOL:04x}",
-        "target_mac": normalized_mac,
+        "target_mac": target_mac,
         "payload_length": len(payload),
         "payload_hex": payload.hex(),
         "frame_length": len(frame),
@@ -416,7 +285,8 @@ def wake_device(interface: str, mac: str, dry_run: bool) -> dict:
         "transport": "ethernet-raw",
         "library": "python-af-packet",
     }
-
+    if normalized_extra is not None:
+        result["extra_data"] = normalized_extra
     if dry_run:
         return result
 
@@ -425,367 +295,125 @@ def wake_device(interface: str, mac: str, dry_run: bool) -> dict:
             sock.bind((normalized_interface, 0))
             sock.send(frame)
     except PermissionError as exc:
-        raise RuntimeError(
-            "wake action requires CAP_NET_RAW or root on Linux to send raw Ethernet frames"
-        ) from exc
+        raise RuntimeError(f"{action} requires CAP_NET_RAW or root on Linux to send raw Ethernet frames") from exc
     except AttributeError as exc:
-        raise RuntimeError("wake action requires Linux AF_PACKET support") from exc
+        raise RuntimeError(f"{action} requires Linux AF_PACKET support") from exc
 
     result["sent"] = True
     return result
 
 
-def control_canonical(command: str, mac: str, timestamp: int, nonce: str) -> str:
-    return "|".join((CONTROL_PROTOCOL, command, mac, str(timestamp), nonce))
+def wake_device(interface: str, mac: str, dry_run: bool) -> dict:
+    return send_magic_frame("wake", interface, mac, None, dry_run)
 
 
-def control_signature(secret: str, canonical: str) -> str:
-    return hmac.new(
-        secret.encode("ascii"),
-        canonical.encode("ascii"),
-        hashlib.sha256,
-    ).hexdigest()
-
-
-def build_control_request(command: str, mac: str, secret: str, timestamp: int, nonce: str) -> bytes:
-    signature = control_signature(secret, control_canonical(command, mac, timestamp, nonce))
-    return f"{CONTROL_PROTOCOL} {command} {mac} {timestamp} {nonce} {signature}\n".encode("ascii")
-
-
-def parse_control_response(data: bytes, command: str, mac: str, secret: str, timestamp: int, nonce: str) -> dict:
-    try:
-        fields = data.decode("ascii").strip().split()
-    except UnicodeDecodeError as exc:
-        raise RuntimeError("invalid non-text control response") from exc
-
-    if len(fields) != 9:
-        raise RuntimeError("invalid control response")
-
-    protocol, acknowledgement, response_command, response_mac, response_timestamp, response_nonce, state, delay, signature = fields
-    if (
-        protocol != CONTROL_PROTOCOL
-        or acknowledgement != "ACK"
-        or response_command != command
-        or response_mac != mac
-        or response_timestamp != str(timestamp)
-        or response_nonce != nonce
-        or not delay.isdecimal()
-    ):
-        raise RuntimeError("unexpected control response")
-
-    canonical = "|".join((
-        CONTROL_PROTOCOL,
-        "ACK",
-        command,
-        mac,
-        str(timestamp),
-        nonce,
-        state,
-        delay,
-    ))
-    expected = control_signature(secret, canonical)
-    if not hmac.compare_digest(signature, expected):
-        raise RuntimeError("invalid control response signature")
-
-    return {
-        "ack": True,
-        "state": state,
-        "delay": int(delay),
-    }
-
-
-def send_control_request(host: str, port: int, mac: str, secret: str, command: str, dry_run: bool) -> dict:
-    timestamp = int(time.time())
-    nonce = secrets.token_hex(16)
-    payload = build_control_request(command, mac, secret, timestamp, nonce)
-    result = {
-        "command": command.lower(),
-        "dry_run": dry_run,
-        "host": host,
-        "port": port,
-        "target_mac": mac,
-        "request_length": len(payload),
-        "request_hex": payload.hex(),
-    }
-
-    if dry_run:
-        return result
-
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        sock.settimeout(2)
-        sock.connect((host, port))
-        sock.send(payload)
-        try:
-            response = sock.recv(1024)
-        except TimeoutError as exc:
-            raise RuntimeError("Client did not acknowledge the control request") from exc
-
-    result.update(parse_control_response(response, command, mac, secret, timestamp, nonce))
-    return result
-
-
-def shutdown_device(host: str, mac: str, control_secret: str, port: int, dry_run: bool) -> dict:
-    normalized_host = normalize_host(host)
-    normalized_mac = normalize_mac(mac).lower()
-    normalized_secret = normalize_control_secret(control_secret)
-    normalized_port = normalize_control_port(port)
-
-    status = send_control_request(
-        normalized_host,
-        normalized_port,
-        normalized_mac,
-        normalized_secret,
-        CONTROL_STATUS,
-        dry_run,
-    )
-    if not dry_run and status.get("state") != "RUNNING":
-        raise RuntimeError("Client did not confirm that it is running")
-
-    shutdown = send_control_request(
-        normalized_host,
-        normalized_port,
-        normalized_mac,
-        normalized_secret,
-        CONTROL_SHUTDOWN,
-        dry_run,
-    )
-    if not dry_run and shutdown.get("state") not in {"SCHEDULED", "ALREADY_SCHEDULED"}:
-        raise RuntimeError("Client did not accept the shutdown request")
-
-    return {
-        "action": "shutdown",
-        "dry_run": dry_run,
-        "host": normalized_host,
-        "port": normalized_port,
-        "target_mac": normalized_mac,
-        "status": status,
-        "shutdown": shutdown,
-        "acknowledged": not dry_run,
-    }
+def shutdown_device(interface: str, mac: str, extra_data: str, dry_run: bool) -> dict:
+    return send_magic_frame("shutdown", interface, mac, extra_data, dry_run)
 
 
 def list_devices(device_file: str | None) -> dict:
     path = resolve_device_file(device_file)
     inventory = load_or_init_inventory(path)
-    defaults = inventory.get("defaults", {})
-    devices = inventory.get("devices", {})
-
-    resolved_defaults = normalize_inventory_fields(dict(defaults))
-
-    resolved_devices = {}
-    for name, entry in devices.items():
+    defaults = normalize_inventory_fields(dict(inventory["defaults"]))
+    devices = {}
+    for name, entry in inventory["devices"].items():
         if not isinstance(entry, dict):
             raise ValueError(f"device entry for {name!r} must be an object")
-
-        resolved = dict(resolved_defaults)
+        resolved = dict(defaults)
         resolved.update(normalize_inventory_fields(entry))
-
-        resolved_devices[name] = resolved
-
+        devices[name] = resolved
     return {
         "action": "list",
         "device_file": str(path),
         "device_template": str(DEFAULT_DEVICE_TEMPLATE),
-        "defaults": resolved_defaults,
-        "devices": resolved_devices,
+        "defaults": defaults,
+        "devices": devices,
     }
 
 
+def add_ethernet_arguments(parser: argparse.ArgumentParser, *, shutdown: bool) -> None:
+    parser.add_argument("--dry-run", action="store_true", help="Build and print frame details without sending anything.")
+    if not shutdown:
+        parser.add_argument("--list-interfaces", action="store_true", help="List local interfaces and exit.")
+    parser.add_argument("--auto-interface", action="store_true", help="Automatically select an active physical LAN interface.")
+    parser.add_argument("--device", help="Device name from the inventory file.")
+    parser.add_argument("--device-file", help="Inventory JSON file.")
+    parser.add_argument("--mac", help="Target device MAC address.")
+    parser.add_argument("--interface", help="Network interface used to send the raw Ethernet frame.")
+    if shutdown:
+        parser.add_argument("--extra-data", help=f"6-byte shutdown discriminator. Default: {DEFAULT_EXTRA_DATA}.")
+
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Send WOL-plus wake or shutdown packets from the local machine."
-    )
+    parser = argparse.ArgumentParser(description="Send WOL-plus wake or shutdown Ethernet frames from the local machine.")
     subparsers = parser.add_subparsers(dest="action", required=True)
-
-    wake_parser = subparsers.add_parser(
-        "wake",
-        help="Send a WOL magic packet as a raw Ethernet frame on Linux.",
-    )
-    wake_parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Build and print the wake payload details without sending anything.",
-    )
-    wake_parser.add_argument(
-        "--list-interfaces",
-        action="store_true",
-        help="List available local network interfaces for raw Ethernet wake and exit.",
-    )
-    wake_parser.add_argument(
-        "--auto-interface",
-        action="store_true",
-        help="Automatically select the best local interface for raw Ethernet wake.",
-    )
-    wake_parser.add_argument("--device", help="Device name from the inventory file.")
-    wake_parser.add_argument(
-        "--device-file",
-        help=(
-            "Inventory JSON file. Default: WOLP_DEVICE_FILE, "
-            "XDG_CONFIG_HOME/wolp/devices.json, or ~/.config/wolp/devices.json."
-        ),
-    )
-    wake_parser.add_argument("--mac", help="Target device MAC address.")
-    wake_parser.add_argument(
-        "--interface",
-        default=None,
-        help="Network interface used to send the raw Ethernet WOL frame.",
-    )
-
-    shutdown_parser = subparsers.add_parser(
-        "shutdown",
-        help="Send an authenticated UDP shutdown request to a running WOLP Client.",
-    )
-    shutdown_parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Build and print the shutdown payload details without sending anything.",
-    )
-    shutdown_parser.add_argument("--device", help="Device name from the inventory file.")
-    shutdown_parser.add_argument(
-        "--device-file",
-        help=(
-            "Inventory JSON file. Default: WOLP_DEVICE_FILE, "
-            "XDG_CONFIG_HOME/wolp/devices.json, or ~/.config/wolp/devices.json."
-        ),
-    )
-    shutdown_parser.add_argument("--host", help="Target IPv4 address.")
-    shutdown_parser.add_argument("--mac", help="Target device MAC address.")
-    shutdown_parser.add_argument(
-        "--control-secret",
-        default=None,
-        help="64-character hexadecimal WOLP control secret.",
-    )
-    shutdown_parser.add_argument(
-        "--port",
-        type=int,
-        default=None,
-        help=f"UDP port for the WOLP control service. Default: {DEFAULT_CONTROL_PORT}.",
-    )
-
-    list_parser = subparsers.add_parser(
-        "list",
-        help="Print the resolved device inventory.",
-    )
-    list_parser.add_argument(
-        "--device-file",
-        help=(
-            "Inventory JSON file. Default: WOLP_DEVICE_FILE, "
-            "XDG_CONFIG_HOME/wolp/devices.json, or ~/.config/wolp/devices.json."
-        ),
-    )
-
+    wake_parser = subparsers.add_parser("wake", help="Send a WOL Magic Packet as a raw Ethernet frame on Linux.")
+    add_ethernet_arguments(wake_parser, shutdown=False)
+    shutdown_parser = subparsers.add_parser("shutdown", help="Send a shutdown Magic Packet as a raw Ethernet frame on Linux.")
+    add_ethernet_arguments(shutdown_parser, shutdown=True)
+    list_parser = subparsers.add_parser("list", help="Print the resolved device inventory.")
+    list_parser.add_argument("--device-file", help="Inventory JSON file.")
     return parser
 
 
-def main(argv: list[str]) -> int:
+def resolve_interface(args, device_entry: dict) -> tuple[str, dict | None]:
+    if args.auto_interface and args.interface:
+        raise ValueError("use either --interface or --auto-interface, not both")
+    selected = None
+    if args.auto_interface or (args.device and args.interface is None and device_entry.get("interface") is None):
+        selected = choose_auto_interface()
+    interface = prefer(args.interface, device_entry.get("interface"), selected["name"] if selected else None)
+    if not interface:
+        raise ValueError("requires --interface, --auto-interface, or an inventory interface")
+    return interface, selected
+
+
+def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-
     try:
         if args.action == "list":
-            result = list_devices(device_file=args.device_file)
-        elif args.action == "wake":
-            if args.list_interfaces:
-                result = list_interfaces()
-                print(json.dumps(result, indent=2, sort_keys=True))
-                return 0
-
-            if args.auto_interface and args.interface:
-                raise ValueError("wake accepts either --interface or --auto-interface, not both")
-
-            device_entry, device_file = resolve_optional_device_entry(args.device, args.device_file)
-
-            mac = prefer(args.mac, device_entry.get("mac"))
-            auto_interface = None
-            if args.auto_interface or (args.device and args.interface is None and device_entry.get("interface") is None):
-                auto_interface = choose_auto_interface()
-            interface = prefer(args.interface, device_entry.get("interface"))
-            if interface is None and auto_interface is not None:
-                interface = auto_interface["name"]
-
-            if not mac:
-                raise ValueError("wake requires --mac or an inventory entry with mac")
-            if not interface:
-                raise ValueError("wake requires --interface or an inventory entry with interface")
-
-            result = wake_device(
-                interface=interface,
-                mac=mac,
-                dry_run=args.dry_run,
-            )
-            if auto_interface is not None:
-                result["auto_interface"] = auto_interface
-                result["interface_selection"] = "auto"
-            elif args.interface is not None:
-                result["interface_selection"] = "cli"
-            elif device_entry.get("interface") is not None:
-                result["interface_selection"] = "inventory"
-            if not args.dry_run:
-                recorded_device, recorded_path = update_inventory_record(
-                    action="wake",
-                    device=args.device,
-                    device_file=args.device_file,
-                    resolved_path=device_file,
-                    fields={
-                        "mac": result["target_mac"],
-                        "interface": result["interface"],
-                    },
-                )
-                result["device"] = recorded_device
-                result["device_file"] = str(recorded_path)
-            elif args.device:
-                result["device"] = args.device
-                result["device_file"] = str(device_file)
+            result = list_devices(args.device_file)
+        elif args.action == "wake" and args.list_interfaces:
+            result = list_interfaces()
         else:
-            device_entry, device_file = resolve_optional_device_entry(args.device, args.device_file)
-
-            host = prefer(args.host, device_entry.get("host"))
-            mac = prefer(args.mac, device_entry.get("mac"))
-            control_secret = prefer(args.control_secret, device_entry.get("control_secret"))
-            port = prefer(args.port, device_entry.get("control_port"), DEFAULT_CONTROL_PORT)
-
-            if not host:
-                raise ValueError("shutdown requires --host or an inventory entry with host")
+            entry, device_path = resolve_optional_device_entry(args.device, args.device_file)
+            mac = prefer(args.mac, entry.get("mac"))
             if not mac:
-                raise ValueError("shutdown requires --mac or an inventory entry with mac")
-            if not control_secret:
-                raise ValueError("shutdown requires --control-secret or an inventory entry with control_secret")
+                raise ValueError(f"{args.action} requires --mac or an inventory entry with mac")
+            interface, auto_interface = resolve_interface(args, entry)
+            if args.action == "wake":
+                result = wake_device(interface, mac, args.dry_run)
+            else:
+                extra_data = prefer(args.extra_data, entry.get("extra_data"), DEFAULT_EXTRA_DATA)
+                result = shutdown_device(interface, mac, extra_data, args.dry_run)
 
-            result = shutdown_device(
-                host=host,
-                mac=mac,
-                control_secret=control_secret,
-                port=int(port),
-                dry_run=args.dry_run,
-            )
+            result["interface_selection"] = "auto" if auto_interface else ("cli" if args.interface else "inventory")
+            if auto_interface:
+                result["auto_interface"] = auto_interface
             if not args.dry_run:
-                recorded_device, recorded_path = update_inventory_record(
-                    action="shutdown",
+                fields = {"mac": result["target_mac"], "interface": result["interface"]}
+                if args.action == "shutdown":
+                    fields["extra_data"] = result["extra_data"]
+                record, path = update_inventory_record(
+                    action=args.action,
                     device=args.device,
                     device_file=args.device_file,
-                    resolved_path=device_file,
-                    fields={
-                        "mac": result["target_mac"],
-                        "host": result["host"],
-                        "control_secret": normalize_control_secret(control_secret),
-                        "control_port": result["port"],
-                    },
+                    resolved_path=device_path,
+                    fields=fields,
                 )
-                result["device"] = recorded_device
-                result["device_file"] = str(recorded_path)
+                result["device"] = record
+                result["device_file"] = str(path)
             elif args.device:
                 result["device"] = args.device
-                result["device_file"] = str(device_file)
-    except OSError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
-    except (RuntimeError, ValueError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 2
+                result["device_file"] = str(device_path)
 
-    print(json.dumps(result, indent=2, sort_keys=True))
-    return 0
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+    except (RuntimeError, ValueError) as exc:
+        parser.error(str(exc))
+        return 2
 
 
 if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1:]))
+    sys.exit(main())

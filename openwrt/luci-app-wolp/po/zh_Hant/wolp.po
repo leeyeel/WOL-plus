@@ -6,19 +6,11 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-# 頁面標題和描述
 msgid "Wake on LAN Plus"
 msgstr "網路喚醒+"
 
-msgid "Wake on LAN Plus is a mechanism to boot and shutdown computers remotely in the local network."
-msgstr "網路喚醒+是一個遠端啟動或關閉本地網路內電腦的機制。"
-
-# 表單欄位 - 操作類型
 msgid "Action"
 msgstr "操作"
-
-msgid "Choose whether to wake up or shutdown the host"
-msgstr "選擇喚醒或關閉主機"
 
 msgid "Wake up"
 msgstr "喚醒"
@@ -26,85 +18,50 @@ msgstr "喚醒"
 msgid "Shutdown"
 msgstr "關機"
 
-# 表單欄位 - 網路介面
 msgid "Network interface to use"
 msgstr "使用的網路介面"
 
-msgid "Specifies the interface the WoL packet is sent on"
-msgstr "指定傳送網路喚醒封包的介面"
-
-# 表單欄位 - 目標主機
-msgid "Host to wake up or shutdown"
-msgstr "要喚醒或關閉的主機"
-
-msgid "Choose the host to control or enter a custom MAC address to use"
-msgstr "選擇要控制的主機，或輸入自訂MAC位址"
-
-# 表單欄位 - 附加資料
-msgid "Additional Data"
-msgstr "附加資料"
-
-msgid "Enter 6-byte custom data (XX:XX:XX:XX:XX:XX).<br />If not specified for shutdown, defaults to FF:FF:FF:FF:FF:FF."
-msgstr "輸入 6 位元組自訂資料（XX:XX:XX:XX:XX:XX）。<br />若用於關機時未指定，則預設為 FF:FF:FF:FF:FF:FF。"
-
-# 表單欄位 - 廣播
 msgid "Send to broadcast address"
 msgstr "傳送到廣播位址"
 
-# 表單欄位 - UDP埠
-msgid "UDP Port for Shutdown"
-msgstr "關機UDP埠"
+msgid "Target MAC address"
+msgstr "目標 MAC 位址"
 
-msgid "UDP port to send shutdown command (default: 9)"
-msgstr "傳送關機命令的UDP埠（預設：9）"
+msgid "Shutdown discriminator"
+msgstr "關機附加資料"
 
-# 按鈕
-msgid "Execute"
-msgstr "執行"
+msgid "etherwake is not installed"
+msgstr "未安裝 etherwake"
 
-msgid "Command executed successfully"
-msgstr "命令執行成功"
+msgid "A target MAC address and network interface are required"
+msgstr "需要目標 MAC 位址和網路介面"
 
-# 成功提示
 msgid "Waking host"
 msgstr "正在喚醒主機"
 
-msgid "Starting WoL utility…"
-msgstr "正在啟動網路喚醒工具…"
+msgid "Sending Ethernet wake frame…"
+msgstr "正在傳送乙太網路喚醒訊框…"
 
-msgid "Shutting down host"
-msgstr "正在關閉主機"
-
-msgid "Checking host reachability…"
-msgstr "正在檢查主機可達性…"
-
-msgid "Sending shutdown command…"
-msgstr "正在傳送關機命令…"
-
-msgid "Shutdown request sent"
-msgstr "關機請求已送出"
+msgid "Wake frame sent"
+msgstr "喚醒訊框已傳送"
 
 msgid "Dismiss"
 msgstr "關閉"
 
-# 錯誤提示
-msgid "No target host specified!"
-msgstr "未指定目標主機！"
+msgid "Shutdown discriminator must be a 6-byte hexadecimal value"
+msgstr "關機附加資料必須為 6 位元組十六進位值"
 
-msgid "etherwake is not installed!"
-msgstr "etherwake未安裝！"
+msgid "Shutting down host"
+msgstr "正在關閉主機"
 
-msgid "netcat is not installed!"
-msgstr "netcat未安裝！"
+msgid "Sending Ethernet shutdown frame…"
+msgstr "正在傳送乙太網路關機訊框…"
 
-msgid "No IPv4 address available for shutdown target. Ensure the host is online or has a host hint entry."
-msgstr "沒有可用於關機目標的IPv4位址。請確認主機在線，或存在對應的主機提示記錄。"
+msgid "Shutdown frame sent"
+msgstr "關機訊框已傳送"
 
-msgid "Device appears offline or unreachable"
-msgstr "裝置似乎離線或不可達"
+msgid "Operation failed"
+msgstr "操作失敗"
 
-msgid "Waking host failed"
-msgstr "喚醒主機失敗"
-
-msgid "Shutting down host failed"
-msgstr "關閉主機失敗"
+msgid "Execute"
+msgstr "執行"

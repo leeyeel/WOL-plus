@@ -5,8 +5,6 @@
 import { access, popen } from 'fs';
 
 const etherwake = '/usr/bin/etherwake';
-const controlHelper = '/usr/libexec/wolp-control';
-const openssl = '/usr/bin/openssl';
 
 function shellquote(value) {
 	return "'" + replace(value, "'", "'\\''") + "'";
@@ -14,13 +12,11 @@ function shellquote(value) {
 
 function resultFromCommand(command) {
 	const fd = popen(command + ' 2>&1');
-	const result = {
+	return {
 		stdout: fd.read('all'),
 		stderr: '',
 		code: fd.close()
 	};
-
-	return result;
 }
 
 function requestArgs(request) {
@@ -35,76 +31,48 @@ function validInterface(value) {
 	return value && match(value, /^[A-Za-z0-9_.:-]+$/);
 }
 
-function validIPv4(value) {
-	return value && match(value, /^\d{1,3}(?:\.\d{1,3}){3}$/);
-}
+function runEtherwake(args, extraData) {
+	const parts = [shellquote(etherwake), shellquote('-D')];
 
-function validPort(value) {
-	return value && match(value, /^\d{4,5}$/);
-}
+	if (!access(etherwake, 'x'))
+		return { stdout: '', stderr: 'etherwake is not installed', code: 1 };
+	if (!validMac(args.mac) || !validInterface(args.interface))
+		return { stdout: '', stderr: 'invalid Ethernet frame request', code: 1 };
+	if (extraData && !validMac(extraData))
+		return { stdout: '', stderr: 'invalid shutdown discriminator', code: 1 };
 
-function validSecret(value) {
-	return value && match(value, /^[0-9A-Fa-f]{64}$/);
-}
+	parts.push(shellquote('-i'));
+	parts.push(shellquote(args.interface));
+	if (args.broadcast)
+		parts.push(shellquote('-b'));
+	if (extraData) {
+		parts.push(shellquote('-p'));
+		parts.push(shellquote(extraData));
+	}
+	parts.push(shellquote(args.mac));
 
-function hasNetcat() {
-	return !!access('/usr/bin/netcat', 'x') ||
-		!!access('/usr/bin/nc', 'x') ||
-		!!access('/bin/nc', 'x');
+	return resultFromCommand(join(' ', parts));
 }
 
 const methods = {
 	stat: {
 		call: function() {
-			return {
-				etherwake: !!access(etherwake, 'x'),
-				control: !!access(controlHelper, 'x') && hasNetcat() && !!access(openssl, 'x')
-			};
+			return { etherwake: !!access(etherwake, 'x') };
 		}
 	},
 
 	wake: {
 		args: { mac: 'string', interface: 'string', broadcast: 'boolean' },
 		call: function(request) {
-			const args = requestArgs(request);
-			const parts = [shellquote(etherwake), shellquote('-D')];
-
-			if (!access(etherwake, 'x'))
-				return { stdout: '', stderr: 'etherwake is not installed', code: 1 };
-			if (!validMac(args.mac) || !validInterface(args.interface))
-				return { stdout: '', stderr: 'invalid wake request', code: 1 };
-
-			parts.push(shellquote('-i'));
-			parts.push(shellquote(args.interface));
-			if (args.broadcast)
-				parts.push(shellquote('-b'));
-			parts.push(shellquote(args.mac));
-
-			return resultFromCommand(join(' ', parts));
+			return runEtherwake(requestArgs(request), null);
 		}
 	},
 
-	control: {
-		args: { action: 'string', host: 'string', port: 'string', mac: 'string', secret: 'string' },
+	shutdown: {
+		args: { mac: 'string', interface: 'string', broadcast: 'boolean', extra_data: 'string' },
 		call: function(request) {
 			const args = requestArgs(request);
-			const action = args.action;
-			const parts = [shellquote(controlHelper)];
-
-			if (!access(controlHelper, 'x'))
-				return { stdout: '', stderr: 'WOLP control helper is not installed', code: 1 };
-			if (action != 'status' && action != 'shutdown')
-				return { stdout: '', stderr: 'invalid control action', code: 1 };
-			if (!validIPv4(args.host) || !validPort(args.port) || !validMac(args.mac) || !validSecret(args.secret))
-				return { stdout: '', stderr: 'invalid control request', code: 1 };
-
-			parts.push(shellquote(action));
-			parts.push(shellquote(args.host));
-			parts.push(shellquote(args.port));
-			parts.push(shellquote(args.mac));
-			parts.push(shellquote(args.secret));
-
-			return resultFromCommand(join(' ', parts));
+			return runEtherwake(args, args.extra_data);
 		}
 	}
 };

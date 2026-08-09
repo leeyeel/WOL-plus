@@ -10,6 +10,7 @@ const Config = {
     readFromDOM() {
         return {
             mac_address: document.getElementById('mac').value.trim(),
+            extra_data: document.getElementById('extra').value.trim(),
             shutdown_delay: document.getElementById('shutdownTime').value.trim()
         };
     },
@@ -21,14 +22,7 @@ const Config = {
     readSettingsFromDOM() {
         const username = document.getElementById('usernameInput').value.trim();
         const newPassword = document.getElementById('newPassword').value;
-        const controlPort = document.getElementById('controlPort').value.trim();
-        const controlSecret = document.getElementById('controlSecret').value.trim();
-
-        const payload = {
-            username,
-            control_port: controlPort || '20250',
-            control_secret: controlSecret
-        };
+        const payload = { username };
 
         if (newPassword) {
             payload.password = newPassword;
@@ -43,8 +37,7 @@ const Config = {
      */
     populateDOM(data) {
         document.getElementById('mac').value = data.mac_address || '';
-        document.getElementById('controlPort').value = data.control_port || '20250';
-        document.getElementById('controlSecret').value = data.control_secret || '';
+        document.getElementById('extra').value = data.extra_data || 'FF:FF:FF:FF:FF:FF';
         document.getElementById('shutdownTime').value = data.shutdown_delay || '60';
         document.getElementById('usernameInput').value = data.username || 'admin';
         document.getElementById('networkInterface').value = data.interface || '';

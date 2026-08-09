@@ -1,11 +1,10 @@
 {
   "defaults": {
-    "control_port": 20250
+    "extra_data": "FF:FF:FF:FF:FF:FF"
   },
   "devices": {
     "desktop": {
       "mac": "AA:BB:CC:DD:EE:FF",
-      "host": "192.168.1.50",
       "interface": "eno1"
     }
   }

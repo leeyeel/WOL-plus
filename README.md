@@ -1,345 +1,87 @@
 # Wake On LAN Plus
 
-> 通过标准 Wake-on-LAN 唤醒设备，并通过带认证确认的 UDP 控制协议远程关机。
+Wake On LAN Plus uses raw Ethernet Wake-on-LAN Magic Packets for both wake and shutdown.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+Shutdown is a Magic Packet for the target MAC followed by a configured six-byte discriminator. The Client captures matching `0x0842` Ethernet frames and starts its shutdown timer.
 
-Wake On LAN Plus 的核心是 `Client` 接收端；发送端可以按需要选择 `OpenWrt`、`Agent`，或两者同时使用。
+## Important Limitation
 
-常见组合有：
+A shutdown frame is also a standard Magic Packet. A device that is already powered off can be awakened by that frame before its operating system can process the shutdown discriminator. Use this transport only on the target LAN segment and accept that limitation.
 
-- OpenWrt + Client：通过 LuCI 页面发送唤醒包和关机包
-- Agent + Client：通过仓库内 `skill/wolp` 在 OpenClaw、Claude Code、Codex CLI 等 agent 环境中发送唤醒包和关机包，见下文 [Skill 使用](#skill-使用)
-- OpenWrt + Agent + Client：同时保留 LuCI 和 agent 两种发送方式，共用同一个 Client 接收端
+## Components
 
-各部分职责如下：
+- **Client**: runs on the target Windows or Linux machine, captures matching Ethernet frames, and optionally provides a Web UI for configuration and cancelling the shutdown timer.
+- **OpenWrt**: provides a LuCI sender using `etherwake` for both actions.
+- **Agent skill**: sends raw Ethernet frames from a Linux agent host with `CAP_NET_RAW` or `root` permission.
 
-- OpenWrt 端：发送端，集成到 LuCI，用来发送唤醒包和关机包
-- Agent 端：发送端，通过 `skill/wolp` 从命令行或 agent 环境发送唤醒包和关机包
-- Client 端：接收端，运行在 Windows 或 Linux 上，接收关机包并提供 Web UI 配置页面
+All senders and the Client must be on the same Layer-2 network. Routing, relays, and target IPv4 addresses are not part of the protocol.
 
-如果你采用的是最常见的 OpenWrt + Client 组合，建议按这个顺序：
+## Protocol
 
-1. 从 [Releases](https://github.com/leeyeel/WOL-plus/releases) 下载 OpenWrt 端和 Client 端安装包
-2. 在目标电脑上先安装 Client 端
-3. 打开 Client Web UI，记录控制端口、控制密钥和关机倒计时
-4. 在 OpenWrt 的 LuCI 页面里填入同样的控制端口、控制密钥和目标设备 MAC
-5. 测试唤醒和关机
+- Wake: `FF` repeated six times, followed by the target MAC repeated 16 times.
+- Shutdown: the same 102-byte Magic Packet, followed by the Client's six-byte `extra_data` value.
+- Ethernet type: `0x0842`.
 
-## 适用场景
+The Client defaults `extra_data` to `FF:FF:FF:FF:FF:FF`. A standard 102-byte wake frame does not trigger Client shutdown because it has no trailing discriminator.
 
-- 唤醒局域网内支持 WOL 的设备
-- 通过 OpenWrt 路由器统一发送唤醒/关机命令
-- 在 Windows、Debian/Ubuntu、RPM 系 Linux 上部署接收端
-- 使用仓库内 skill 从命令行或 agent 环境发送唤醒/关机包
+## Client
 
-## 界面预览
+The Client needs packet-capture support:
 
-### OpenWrt 端
+- Linux: `libpcap` runtime library and permission to capture on the selected interface. The packaged systemd service runs as root.
+- Windows: install [Npcap](https://npcap.com/) before starting the Client.
 
-![Wake On LAN+](openwrt/openwrt.jpg)
+With Web UI installed, open `http://<client-ip>:2025`. The initial credentials are `admin` / `admin123`.
 
-### Client 端 Web UI
+The key settings are:
 
-![WOLP Server](client/wolp-client.jpg)
+- `mac_address`: target NIC MAC address.
+- `interface`: libpcap capture-device name.
+- `extra_data`: six-byte shutdown discriminator.
+- `shutdown_delay`: delay before the local shutdown command runs.
 
-### Agent 端(以OpenClaw为例)
+The default Linux configuration is `/usr/local/etc/wolp/wolp.json`. Existing configuration files are automatically rewritten to remove retired transport settings on next startup.
 
-![Agent Skill](skill/skill.jpg)
-
-## Releases 下载说明
-
-所有可直接安装的产物都在 [Releases](https://github.com/leeyeel/WOL-plus/releases) 页面提供下载。
-
-常见文件名如下：
-
-- OpenWrt 主包：
-  - `luci-app-wolp_<version>_x86_64.ipk`
-  - `luci-app-wolp_<version>_aarch64_generic.ipk`
-- OpenWrt 简体中文包：
-  - `luci-i18n-wolp-zh-cn_<version>_x86_64.ipk`
-  - `luci-i18n-wolp-zh-cn_<version>_aarch64_generic.ipk`
-- Windows Client：
-  - `installer_windows_amd64_v<version>.exe`
-- Debian/Ubuntu Client：
-  - `wolp-client_<version>_amd64.deb`
-  - `wolp-client_<version>_arm64.deb`
-- RPM Client：
-  - `wolp-client-<version>-1.x86_64.rpm`
-  - `wolp-client-<version>-1.aarch64.rpm`
-
-## OpenWrt 端安装与使用
-
-OpenWrt 端是发送端，安装后会出现在 LuCI 的“服务”菜单中。
-
-### 安装
-
-如果系统里已经装了官方 `luci-app-wol`，建议先卸载，避免菜单和功能冲突：
-
-```bash
-opkg remove luci-app-wol
-```
-
-下载与你设备架构对应的 IPK 包后，上传到路由器并安装：
-
-```bash
-scp luci-app-wolp_<version>_<arch>.ipk root@<openwrt-ip>:/tmp/
-scp luci-i18n-wolp-zh-cn_<version>_<arch>.ipk root@<openwrt-ip>:/tmp/
-
-ssh root@<openwrt-ip>
-opkg update
-opkg install /tmp/luci-app-wolp_<version>_<arch>.ipk
-opkg install /tmp/luci-i18n-wolp-zh-cn_<version>_<arch>.ipk
-```
-
-也可以直接通过LuCI安装软件包:
-
-```
-系统-> 软件包 -> 更新列表 -> 上传软件包
-```
-
-安装完成后，在 LuCI 中进入：
-
-`服务 -> Wake on LAN+`
-
-### 使用
-
-在 OpenWrt 页面中主要需要填写：
-
-- 目标设备 MAC 地址和 Client IPv4 地址
-- 控制 UDP 端口，默认 `20250`
-- 从 Client 端复制的 64 位十六进制控制密钥
-
-说明：
-
-- 唤醒使用标准二层 WOL Magic Packet
-- 关机先请求 Client 状态，只有收到签名的 `RUNNING` 确认后才发送关机请求
-- 关机请求和响应均带时间戳、随机 nonce 与 HMAC-SHA256，且不包含 Magic Packet 前缀
-
-## Client 端安装与使用
-
-Client 端负责接收关机包；默认提供 Web UI 配置页面，也支持纯后端运行。
-
-默认带 Web UI 运行时，访问地址：
-
-- `http://<client-ip>:2025`
-
-默认登录信息：
-
-- 用户名：`admin`
-- 密码：`admin123`
-
-首次登录后建议立即修改密码。
-
-如果设备资源紧张，或你只想保留 UDP 监听后端，可直接使用：
+For a capture-only service without the Web UI:
 
 ```bash
 /usr/local/bin/wolp --backend-only
 ```
 
-该模式下可以不安装 `/usr/share/wolp/webui`，程序也不会启动 HTTP server；配置改为直接编辑 `/usr/local/etc/wolp/wolp.json`。
+## OpenWrt
 
-### Windows 安装
+Install the IPK packages from [Releases](https://github.com/leeyeel/WOL-plus/releases), then open `Services -> Wake on LAN Plus`.
 
-从 Releases 下载：
+For wake, select the LAN interface and target MAC. For shutdown, enter the same six-byte discriminator configured in the Client. `etherwake` sends both actions as raw Ethernet frames.
 
-- `installer_windows_amd64_v<version>.exe`
-
-安装步骤：
-
-1. 直接运行安装程序
-2. 安装完成后服务会自动启动
-3. 浏览器访问 `http://<windows-ip>:2025`
-
-### Debian / Ubuntu 安装
-
-从 Releases 下载对应架构的 `.deb` 包后安装：
+Build local IPKs with:
 
 ```bash
-sudo dpkg -i wolp-client_<version>_amd64.deb
-sudo systemctl status wolp.service
+cd openwrt
+VERSION=0.4.0 ./build-ipk.sh
 ```
 
-如需自行构建不带 Web UI 的 Debian 包：
+## Agent Skill
+
+The bundled skill is in `skill/wolp`. It runs on Linux and requires `CAP_NET_RAW` or `root` for real sends.
 
 ```bash
-bash scripts/build-deb.sh --without-webui amd64 0.0.0-dev
+python3 skill/wolp/scripts/wolp_power.py wake --list-interfaces
+python3 skill/wolp/scripts/wolp_power.py wake --auto-interface --mac AA:BB:CC:DD:EE:FF --dry-run
+python3 skill/wolp/scripts/wolp_power.py shutdown --interface eth0 --mac AA:BB:CC:DD:EE:FF --extra-data 12:34:56:78:9A:BC --dry-run
 ```
 
-### RPM 系 Linux 安装
+The skill keeps device records outside its installation directory, under `WOLP_DEVICE_FILE`, `XDG_CONFIG_HOME/wolp/devices.json`, or `~/.config/wolp/devices.json`.
 
-从 Releases 下载对应架构的 `.rpm` 包后安装：
+## Packages
 
-```bash
-sudo rpm -ivh wolp-client-<version>-1.x86_64.rpm
-sudo systemctl status wolp.service
-```
+- Windows: `installer_windows_amd64_v<version>.exe`
+- Debian/Ubuntu: `wolp-client-<variant>_<version>_<arch>.deb`
+- RPM Linux: `wolp-client-<variant>-<version>-1.<arch>.rpm`
+- OpenWrt: `luci-app-wolp_<version>_<arch>.ipk`
 
-如需自行构建不带 Web UI 的 RPM 包：
+Build Linux packages with `scripts/build-deb.sh` or `scripts/build-rpm.sh`. Building the Client requires libpcap development headers; cross-building arm64 requires an `aarch64-linux-gnu` C compiler and arm64 libpcap development headers.
 
-```bash
-bash scripts/build-rpm.sh --without-webui amd64 0.0.0-dev
-```
-
-### Linux 安装后的文件位置
-
-Linux Client 默认路径如下：
-
-- 可执行文件：`/usr/local/bin/wolp`
-- 配置文件：`/usr/local/etc/wolp/wolp.json`
-- Web UI：`/usr/share/wolp/webui`（可选）
-- systemd 服务：`wolp.service`
-
-### Client 端 Web UI 配置
-
-Client 端重点配置项：
-
-- `control_port`
-  - 默认 `20250`
-  - 必须与 OpenWrt/Agent 发送端保持一致
-- `control_secret`
-  - 首次启动时自动生成 64 位十六进制密钥
-  - 必须复制到 OpenWrt/Agent 发送端
-- `shutdown_delay`
-  - 收到合法关机包后延迟多少秒执行关机
-- `username` / `password`
-  - Web UI 登录凭据
-
-### 纯后端模式
-
-纯后端模式下，`wolp` 只保留 UDP 监听，不启动 Web UI，也不会监听 `2025` 端口。
-
-常见用法：
-
-```bash
-/usr/local/bin/wolp --backend-only
-```
-
-如果你通过 `make install` 安装，也可以跳过 Web UI 文件：
-
-```bash
-make install INSTALL_WEBUI=0
-```
-
-此时安装出的 systemd 服务会自动以 `--backend-only` 方式启动。
-
-如果需要让 systemd 以纯后端模式运行，可把 `ExecStart` 改成：
-
-```ini
-ExecStart=/usr/local/bin/wolp --backend-only
-```
-
-仓库里的默认配置值是：
-
-- `control_port = 20250`
-- `control_secret` 首次启动时自动生成
-- `shutdown_delay = 60`
-
-## 推荐使用流程
-
-### 1. 先安装 Client 端
-
-先在目标电脑上安装 Windows、Debian/Ubuntu 或 RPM 包。
-
-### 2. 配置 Client
-
-带 Web UI 模式下访问：
-
-- `http://<client-ip>:2025`
-
-纯后端模式下直接编辑：
-
-- `/usr/local/etc/wolp/wolp.json`
-
-记录并确认这些值：
-
-- 目标设备 MAC 地址
-- `control_port`
-- `control_secret`
-
-### 3. 在 OpenWrt 端填写同样的参数
-
-在 LuCI 页面中配置：
-
-- 目标 MAC 地址和 Client IPv4 地址
-- `control_port`
-- `control_secret`
-
-### 4. 测试唤醒和关机
-
-建议先测试唤醒，再测试关机。
-
-如果关机没有生效，优先检查：
-
-- OpenWrt 和目标机器是否互通
-- Client 端服务是否运行正常
-- `control_port` 是否完全一致
-- `control_secret` 是否完全一致
-- 目标机器防火墙是否拦截 UDP
-
-## Skill 使用
-
-仓库内提供了一个 skill：
-
-- `skill/wolp`
-
-目前该 skill 已上架 OpenClaw，其他 agent 可通过手动拷贝目录的方式安装。
-
-Skill 当前行为：
-
-- `wake` 和 `shutdown` 都使用 Python 标准库，不再依赖额外 `pip` 包
-- `wake` 在 Linux 上使用原始以太帧发送标准 WOL，需要指定网络接口，并在真实发包时具备 `CAP_NET_RAW` 或 `root`
-- 可以先运行 `python3 skill/wolp/scripts/wolp_power.py wake --list-interfaces` 枚举本机网卡，优先选择 `preferred=true` 且 `operstate=up` 的非虚拟接口
-- 也可以直接用 `python3 skill/wolp/scripts/wolp_power.py wake --auto-interface --mac <MAC> --dry-run` 让脚本自动选最优接口
-- `shutdown` 先验证 Client 的签名状态响应，再发送认证 UDP 关机请求
-- 默认设备清单写入用户配置目录，而不是 skill 安装目录：
-  - `WOLP_DEVICE_FILE`
-  - 或 `XDG_CONFIG_HOME/wolp/devices.json`
-  - 或 `~/.config/wolp/devices.json`
-- 仓库内仅保留示例清单：
-  - `skill/wolp/assets/devices.example.json`
-- 建议先用 `--dry-run` 预览，再执行真实发送
-
-### OpenClaw 安装
-
-```bash
-npx clawhub@latest install wolp
-```
-
-安装完成后，OpenClaw 就可以识别并使用该 skill。
-
-### Claude Code 安装
-
-当前 Claude Code 暂未提供商店安装入口，可直接将仓库中的 skill 目录拷贝到 Claude Code 的 `skills` 目录中：
-
-```bash
-cp -r skill/wolp <your-claude-skills-dir>/
-```
-
-拷贝完成后，重新加载或重启 Claude Code 即可。
-
-### Codex CLI 安装
-
-当前 Codex CLI 也需要手动安装，可将同一个 skill 目录拷贝到 Codex CLI 的 `skills` 目录中：
-
-```bash
-cp -r skill/wolp <your-codex-skills-dir>/
-```
-
-拷贝完成后，重新启动 Codex CLI 即可生效。
-
-## 工作原理
-
-唤醒：
-
-- OpenWrt 或 skill 发送标准 Wake-on-LAN Magic Packet
-
-关机：
-
-- OpenWrt 或 skill 向 Client 的单播 UDP 控制端口发送签名 `STATUS` 请求
-- Client 返回 `RUNNING` ACK 后，发送端才发送签名 `SHUTDOWN` 请求
-- Client 返回 `SCHEDULED` 或 `ALREADY_SCHEDULED` ACK 后进入关机倒计时
-
-## 许可证
+## License
 
 [MIT License](LICENSE)

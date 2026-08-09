@@ -21,7 +21,14 @@ function Build() {
 
     $env:GOOS = "windows"
     $env:GOARCH = $Arch
-    $env:CGO_ENABLED = "0"
+    $env:CGO_ENABLED = "1"
+
+    if (-not $env:CGO_CFLAGS) {
+        $env:CGO_CFLAGS = '-IC:\Program Files\Npcap\Include'
+    }
+    if (-not $env:CGO_LDFLAGS) {
+        $env:CGO_LDFLAGS = '-LC:\Program Files\Npcap\Lib\x64 -lwpcap -lPacket'
+    }
 
     Write-Host "Building project for windows/$Arch..."
     go build -trimpath -ldflags "-s -w" -o (Join-Path $BuildDir $ExecutableName) .

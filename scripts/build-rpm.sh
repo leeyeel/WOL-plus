@@ -95,12 +95,12 @@ if [[ "$INCLUDE_WEBUI" -eq 1 ]]; then
     VARIANT="with-webui"
     PACKAGE_NAME="wolp-client-with-webui"
     OTHER_PACKAGE_NAME="wolp-client-backend-only"
-    PACKAGE_DESCRIPTION="UDP-based shutdown listener with bundled web UI for Wake On LAN Plus."
+    PACKAGE_DESCRIPTION="Raw Ethernet-frame shutdown listener with bundled web UI for Wake On LAN Plus."
 else
     VARIANT="backend-only"
     PACKAGE_NAME="wolp-client-backend-only"
     OTHER_PACKAGE_NAME="wolp-client-with-webui"
-    PACKAGE_DESCRIPTION="UDP-based shutdown listener without bundled web UI for Wake On LAN Plus."
+    PACKAGE_DESCRIPTION="Raw Ethernet-frame shutdown listener without bundled web UI for Wake On LAN Plus."
 fi
 
 BUILD_ROOT="$REPO_ROOT/build/rpm/$ARCH/$VARIANT"
@@ -130,7 +130,11 @@ if [[ "$INCLUDE_WEBUI" -eq 1 ]]; then
 fi
 
 pushd "$REPO_ROOT/client/src" >/dev/null
-GOOS=linux GOARCH="$GO_ARCH" CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o "$BIN_DIR/wolp" .
+if [[ "$GO_ARCH" == "arm64" && "$(go env GOHOSTARCH)" != "arm64" ]]; then
+    : "${CC:=aarch64-linux-gnu-gcc}"
+    export CC
+fi
+GOOS=linux GOARCH="$GO_ARCH" CGO_ENABLED=1 go build -trimpath -ldflags "-s -w" -o "$BIN_DIR/wolp" .
 popd >/dev/null
 
 install -m 0600 "$REPO_ROOT/client/wolp.json" "$CONFIG_DIR/wolp.json"
@@ -163,6 +167,7 @@ Release:        $RPM_RELEASE%{?dist}
 Summary:        Wake On LAN Plus client
 License:        MIT
 Requires:       systemd
+Requires:       libpcap
 Provides:       wolp-client
 Conflicts:      $OTHER_PACKAGE_NAME
 Obsoletes:      $OTHER_PACKAGE_NAME
