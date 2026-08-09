@@ -1,7 +1,6 @@
 {
   "defaults": {
-    "port": 9,
-    "extra_data": "FF:FF:FF:FF:FF:FF"
+    "control_port": 20250
   },
   "devices": {
     "desktop": {

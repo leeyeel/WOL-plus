@@ -2,24 +2,29 @@
 
 import argparse
 from datetime import datetime, timezone
+import hashlib
+import hmac
 import ipaddress
 import json
 import os
+import secrets
 import socket
 import struct
 import sys
+import time
 from pathlib import Path
 
 
-DEFAULT_EXTRA_DATA = "FF:FF:FF:FF:FF:FF"
-DEFAULT_UDP_PORT = 9
+DEFAULT_CONTROL_PORT = 20250
+CONTROL_PROTOCOL = "WOLP/1"
+CONTROL_STATUS = "STATUS"
+CONTROL_SHUTDOWN = "SHUTDOWN"
 SYNC_BYTES = b"\xff" * 6
 ETHERTYPE_WOL = 0x0842
 ETH_BROADCAST = "FF:FF:FF:FF:FF:FF"
 NET_CLASS_DIR = Path("/sys/class/net")
 DEFAULTS = {
-    "port": DEFAULT_UDP_PORT,
-    "extra_data": DEFAULT_EXTRA_DATA,
+    "control_port": DEFAULT_CONTROL_PORT,
 }
 SKILL_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_DEVICE_TEMPLATE = SKILL_DIR / "assets" / "devices.example.json"
@@ -64,6 +69,24 @@ def normalize_port(value: int) -> int:
     if not 1 <= value <= 65535:
         raise ValueError(f"invalid UDP port: {value}")
     return value
+
+
+def normalize_control_port(value: int) -> int:
+    port = normalize_port(value)
+    if port < 1024:
+        raise ValueError(f"control UDP port must be between 1024 and 65535: {value}")
+    return port
+
+
+def normalize_control_secret(value: str) -> str:
+    secret = value.strip().lower()
+    if len(secret) != 64:
+        raise ValueError("control secret must be a 64-character hexadecimal value")
+    try:
+        bytes.fromhex(secret)
+    except ValueError as exc:
+        raise ValueError("control secret must be a 64-character hexadecimal value") from exc
+    return secret
 
 
 def normalize_interface(value: str) -> str:
@@ -193,10 +216,10 @@ def normalize_inventory_fields(entry: dict) -> dict:
         normalized["host"] = normalize_host(str(entry["host"]))
     if "interface" in entry and entry["interface"] is not None:
         normalized["interface"] = normalize_interface(str(entry["interface"]))
-    if "extra_data" in entry and entry["extra_data"] is not None:
-        normalized["extra_data"] = normalize_mac(str(entry["extra_data"]))
-    if "port" in entry and entry["port"] is not None:
-        normalized["port"] = normalize_port(int(entry["port"]))
+    if "control_port" in entry and entry["control_port"] is not None:
+        normalized["control_port"] = normalize_control_port(int(entry["control_port"]))
+    if "control_secret" in entry and entry["control_secret"] is not None:
+        normalized["control_secret"] = normalize_control_secret(str(entry["control_secret"]))
     if "last_action" in entry and entry["last_action"] is not None:
         normalized["last_action"] = str(entry["last_action"])
     if "last_success_at" in entry and entry["last_success_at"] is not None:
@@ -272,10 +295,6 @@ def update_inventory_record(
 
 def build_magic_payload(mac_bytes: bytes) -> bytes:
     return SYNC_BYTES + (mac_bytes * 16)
-
-
-def build_shutdown_payload(mac_bytes: bytes, extra_bytes: bytes) -> bytes:
-    return build_magic_payload(mac_bytes) + extra_bytes
 
 
 def get_interface_mac(interface: str) -> str:
@@ -416,36 +435,133 @@ def wake_device(interface: str, mac: str, dry_run: bool) -> dict:
     return result
 
 
-def shutdown_device(host: str, mac: str, extra_data: str, port: int, dry_run: bool) -> dict:
-    normalized_host = normalize_host(host)
-    normalized_mac = normalize_mac(mac)
-    normalized_extra = normalize_mac(extra_data)
-    normalized_port = normalize_port(port)
+def control_canonical(command: str, mac: str, timestamp: int, nonce: str) -> str:
+    return "|".join((CONTROL_PROTOCOL, command, mac, str(timestamp), nonce))
 
-    payload = build_shutdown_payload(
-        mac_to_bytes(normalized_mac),
-        mac_to_bytes(normalized_extra),
-    )
 
+def control_signature(secret: str, canonical: str) -> str:
+    return hmac.new(
+        secret.encode("ascii"),
+        canonical.encode("ascii"),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def build_control_request(command: str, mac: str, secret: str, timestamp: int, nonce: str) -> bytes:
+    signature = control_signature(secret, control_canonical(command, mac, timestamp, nonce))
+    return f"{CONTROL_PROTOCOL} {command} {mac} {timestamp} {nonce} {signature}\n".encode("ascii")
+
+
+def parse_control_response(data: bytes, command: str, mac: str, secret: str, timestamp: int, nonce: str) -> dict:
+    try:
+        fields = data.decode("ascii").strip().split()
+    except UnicodeDecodeError as exc:
+        raise RuntimeError("invalid non-text control response") from exc
+
+    if len(fields) != 9:
+        raise RuntimeError("invalid control response")
+
+    protocol, acknowledgement, response_command, response_mac, response_timestamp, response_nonce, state, delay, signature = fields
+    if (
+        protocol != CONTROL_PROTOCOL
+        or acknowledgement != "ACK"
+        or response_command != command
+        or response_mac != mac
+        or response_timestamp != str(timestamp)
+        or response_nonce != nonce
+        or not delay.isdecimal()
+    ):
+        raise RuntimeError("unexpected control response")
+
+    canonical = "|".join((
+        CONTROL_PROTOCOL,
+        "ACK",
+        command,
+        mac,
+        str(timestamp),
+        nonce,
+        state,
+        delay,
+    ))
+    expected = control_signature(secret, canonical)
+    if not hmac.compare_digest(signature, expected):
+        raise RuntimeError("invalid control response signature")
+
+    return {
+        "ack": True,
+        "state": state,
+        "delay": int(delay),
+    }
+
+
+def send_control_request(host: str, port: int, mac: str, secret: str, command: str, dry_run: bool) -> dict:
+    timestamp = int(time.time())
+    nonce = secrets.token_hex(16)
+    payload = build_control_request(command, mac, secret, timestamp, nonce)
     result = {
-        "action": "shutdown",
+        "command": command.lower(),
         "dry_run": dry_run,
-        "host": normalized_host,
-        "port": normalized_port,
-        "target_mac": normalized_mac,
-        "extra_data": normalized_extra,
-        "payload_length": len(payload),
-        "payload_hex": payload.hex(),
+        "host": host,
+        "port": port,
+        "target_mac": mac,
+        "request_length": len(payload),
+        "request_hex": payload.hex(),
     }
 
     if dry_run:
         return result
 
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        sock.sendto(payload, (normalized_host, normalized_port))
+        sock.settimeout(2)
+        sock.connect((host, port))
+        sock.send(payload)
+        try:
+            response = sock.recv(1024)
+        except TimeoutError as exc:
+            raise RuntimeError("Client did not acknowledge the control request") from exc
 
-    result["sent"] = True
+    result.update(parse_control_response(response, command, mac, secret, timestamp, nonce))
     return result
+
+
+def shutdown_device(host: str, mac: str, control_secret: str, port: int, dry_run: bool) -> dict:
+    normalized_host = normalize_host(host)
+    normalized_mac = normalize_mac(mac).lower()
+    normalized_secret = normalize_control_secret(control_secret)
+    normalized_port = normalize_control_port(port)
+
+    status = send_control_request(
+        normalized_host,
+        normalized_port,
+        normalized_mac,
+        normalized_secret,
+        CONTROL_STATUS,
+        dry_run,
+    )
+    if not dry_run and status.get("state") != "RUNNING":
+        raise RuntimeError("Client did not confirm that it is running")
+
+    shutdown = send_control_request(
+        normalized_host,
+        normalized_port,
+        normalized_mac,
+        normalized_secret,
+        CONTROL_SHUTDOWN,
+        dry_run,
+    )
+    if not dry_run and shutdown.get("state") not in {"SCHEDULED", "ALREADY_SCHEDULED"}:
+        raise RuntimeError("Client did not accept the shutdown request")
+
+    return {
+        "action": "shutdown",
+        "dry_run": dry_run,
+        "host": normalized_host,
+        "port": normalized_port,
+        "target_mac": normalized_mac,
+        "status": status,
+        "shutdown": shutdown,
+        "acknowledged": not dry_run,
+    }
 
 
 def list_devices(device_file: str | None) -> dict:
@@ -517,7 +633,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     shutdown_parser = subparsers.add_parser(
         "shutdown",
-        help="Send a UDP magic packet to a target IPv4 address.",
+        help="Send an authenticated UDP shutdown request to a running WOLP Client.",
     )
     shutdown_parser.add_argument(
         "--dry-run",
@@ -535,15 +651,15 @@ def build_parser() -> argparse.ArgumentParser:
     shutdown_parser.add_argument("--host", help="Target IPv4 address.")
     shutdown_parser.add_argument("--mac", help="Target device MAC address.")
     shutdown_parser.add_argument(
-        "--extra-data",
+        "--control-secret",
         default=None,
-        help=f"6-byte extra data for shutdown packets. Default: {DEFAULT_EXTRA_DATA}.",
+        help="64-character hexadecimal WOLP control secret.",
     )
     shutdown_parser.add_argument(
         "--port",
         type=int,
         default=None,
-        help=f"UDP port for the shutdown packet. Default: {DEFAULT_UDP_PORT}.",
+        help=f"UDP port for the WOLP control service. Default: {DEFAULT_CONTROL_PORT}.",
     )
 
     list_parser = subparsers.add_parser(
@@ -625,18 +741,20 @@ def main(argv: list[str]) -> int:
 
             host = prefer(args.host, device_entry.get("host"))
             mac = prefer(args.mac, device_entry.get("mac"))
-            extra_data = prefer(args.extra_data, device_entry.get("extra_data"), DEFAULT_EXTRA_DATA)
-            port = prefer(args.port, device_entry.get("port"), DEFAULT_UDP_PORT)
+            control_secret = prefer(args.control_secret, device_entry.get("control_secret"))
+            port = prefer(args.port, device_entry.get("control_port"), DEFAULT_CONTROL_PORT)
 
             if not host:
                 raise ValueError("shutdown requires --host or an inventory entry with host")
             if not mac:
                 raise ValueError("shutdown requires --mac or an inventory entry with mac")
+            if not control_secret:
+                raise ValueError("shutdown requires --control-secret or an inventory entry with control_secret")
 
             result = shutdown_device(
                 host=host,
                 mac=mac,
-                extra_data=extra_data,
+                control_secret=control_secret,
                 port=int(port),
                 dry_run=args.dry_run,
             )
@@ -649,8 +767,8 @@ def main(argv: list[str]) -> int:
                     fields={
                         "mac": result["target_mac"],
                         "host": result["host"],
-                        "extra_data": result["extra_data"],
-                        "port": result["port"],
+                        "control_secret": normalize_control_secret(control_secret),
+                        "control_port": result["port"],
                     },
                 )
                 result["device"] = recorded_device

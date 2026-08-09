@@ -8,9 +8,6 @@ const App = {
      * 初始化应用
      */
     async init() {
-        // 初始化附加数据输入模块
-        ExtraInput.init();
-
         this.bindEvents();
 
         // 如果有缓存的认证信息，验证是否仍然有效

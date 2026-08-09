@@ -22,17 +22,17 @@ return view.extend({
 		expect: { '': {} }
 	}),
 
-	callWolpExec: rpc.declare({
+	callWolpWake: rpc.declare({
 		object: 'luci.wolp',
-		method: 'exec',
-		params: [ 'name', 'args' ],
+		method: 'wake',
+		params: [ 'mac', 'interface', 'broadcast' ],
 		expect: { '': {} }
 	}),
 
-	callWolpProbe: rpc.declare({
+	callWolpControl: rpc.declare({
 		object: 'luci.wolp',
-		method: 'probe',
-		params: [ 'host' ],
+		method: 'control',
+		params: [ 'action', 'host', 'port', 'mac', 'secret' ],
 		expect: { '': {} }
 	}),
 
@@ -43,221 +43,212 @@ return view.extend({
 		throw new Error((res && (res.stderr || res.stdout)) || ('exit code ' + ((res && res.code) || 1)));
 	},
 
+	parseControlResult: function(res) {
+		this.parseExecResult(res);
+
+		try {
+			return JSON.parse(res.stdout || '{}');
+		}
+		catch (err) {
+			throw new Error(_('Invalid response from WOLP control helper'));
+		}
+	},
+
+	normalizeMac: function(value) {
+		var clean = String(value || '').trim().replace(/-/g, ':').toUpperCase();
+		return /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(clean) ? clean : null;
+	},
+
 	resolveShutdownAddress: function(mac) {
-		var host = this.hosts && this.hosts[mac],
-			addrs = host ? L.toArray(host.ipaddrs || host.ipv4) : [],
-			addr;
+		var keys = Object.keys(this.hosts || {}),
+			normalized = this.normalizeMac(mac),
+			host,
+			addrs,
+			addr,
+			i,
+			j;
 
-		for (var i = 0; i < addrs.length; i++) {
-			addr = addrs[i];
+		for (i = 0; i < keys.length; i++) {
+			if (this.normalizeMac(keys[i]) !== normalized)
+				continue;
 
-			if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(addr))
-				return addr;
+			host = this.hosts[keys[i]];
+			addrs = L.toArray(host.ipaddrs || host.ipv4);
+			for (j = 0; j < addrs.length; j++) {
+				addr = String(addrs[j] || '').trim();
+				if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(addr))
+					return addr;
+			}
 		}
 
 		return null;
 	},
 
+	controlTarget: function(data) {
+		var mac = this.normalizeMac(data.wol.mac),
+			host = String(data.wol.host || '').trim() || this.resolveShutdownAddress(mac),
+			port = String(data.wol.control_port || '').trim(),
+			secret = String(data.wol.control_secret || '').trim();
+
+		if (!mac)
+			throw new Error(_('A valid target MAC address is required'));
+		if (!/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host))
+			throw new Error(_('No IPv4 address is available for the control target'));
+		if (!/^\d{4,5}$/.test(port) || +port < 1024 || +port > 65535)
+			throw new Error(_('Control UDP port must be between 1024 and 65535'));
+		if (!/^[0-9A-Fa-f]{64}$/.test(secret))
+			throw new Error(_('Control secret must be a 64-character hexadecimal value'));
+
+		return {
+			mac: mac,
+			host: host,
+			port: port,
+			secret: secret
+		};
+	},
+
+	requestControl: function(action, target) {
+		return this.callWolpControl(action, target.host, target.port, target.mac, target.secret)
+			.then(L.bind(this.parseControlResult, this));
+	},
+
+	saveControlDefaults: function(target) {
+		uci.set('luci-wolp', 'defaults', 'control_port', target.port);
+		uci.set('luci-wolp', 'defaults', 'control_secret', target.secret);
+		return uci.save();
+	},
+
 	load: function() {
 		return Promise.all([
 			L.resolveDefault(this.callWolpStat(), {}),
-			this.callHostHints(),
+			L.resolveDefault(this.callHostHints(), {}),
 			uci.load('luci-wolp')
 		]);
 	},
 
 	render: function(data) {
 		var stat = data[0] || {},
-			has_ewk = !!stat.etherwake,
-			has_nc = !!stat.netcat,
-			hosts = data[1],
-			m, s, o;
+			hosts = data[1] || {},
+			m,
+			s,
+			o;
 
-		this.formdata.has_ewk = has_ewk;
-		this.formdata.has_nc = has_nc;
+		this.formdata.has_ewk = !!stat.etherwake;
+		this.formdata.has_control = !!stat.control;
 		this.hosts = hosts;
 
 		m = new form.JSONMap(this.formdata, _('Wake on LAN Plus'),
-			_('Wake on LAN Plus is a mechanism to boot and shutdown computers remotely in the local network.'));
-
+			_('Use standard Wake-on-LAN for wake requests. Shutdown is sent only after an authenticated Client status acknowledgement.'));
 		s = m.section(form.NamedSection, 'wol');
 
-		// 操作类型选择
-		o = s.option(form.ListValue, 'action', _('Action'),
-			_('Choose whether to wake up or shutdown the host'));
+		o = s.option(form.ListValue, 'action', _('Action'));
 		o.value('wake', _('Wake up'));
 		o.value('shutdown', _('Shutdown'));
 		o.default = 'wake';
 
-		// 网络接口
-		if (has_ewk) {
-			o = s.option(widgets.DeviceSelect, 'iface', _('Network interface to use'),
-				_('Specifies the interface the WoL packet is sent on'));
-
-			o.default = uci.get('luci-wolp', 'defaults', 'interface');
+		if (this.formdata.has_ewk) {
+			o = s.option(widgets.DeviceSelect, 'iface', _('Network interface to use'));
+			o.default = uci.get('luci-wolp', 'defaults', 'interface') || 'br-lan';
 			o.rmempty = false;
 			o.noaliases = true;
 			o.noinactive = true;
+
+			o = s.option(form.Flag, 'broadcast', _('Send wake request to broadcast address'));
 		}
 
-		// 主机选择
-		o = s.option(form.Value, 'mac', _('Host to wake up or shutdown'),
-			_('Choose the host to control or enter a custom MAC address to use'));
-
+		o = s.option(form.Value, 'mac', _('Target MAC address'));
 		o.rmempty = false;
-
+		o.datatype = 'macaddr';
 		L.sortedKeys(hosts).forEach(function(mac) {
 			o.value(mac, E([], [ mac, ' (', E('strong', [
-				hosts[mac].name ||
-				L.toArray(hosts[mac].ipaddrs || hosts[mac].ipv4)[0] ||
-				L.toArray(hosts[mac].ip6addrs || hosts[mac].ipv6)[0] ||
-				'?'
+				hosts[mac].name || L.toArray(hosts[mac].ipaddrs || hosts[mac].ipv4)[0] || '?'
 			]), ')' ]));
 		});
 
-		// 附加数据（仅关机时显示）
-		o = s.option(form.Value, 'extra_data', _('Additional Data'),
-			_('Enter 6-byte custom data (XX:XX:XX:XX:XX:XX).<br />If not specified for shutdown, defaults to FF:FF:FF:FF:FF:FF.'));
-		o.placeholder = 'AA:BB:CC:DD:EE:FF';
-		o.default = 'FF:FF:FF:FF:FF:FF';
-		o.datatype = 'macaddr';
+		o = s.option(form.Value, 'host', _('Client IPv4 address'));
+		o.placeholder = _('Resolved automatically from OpenWrt host hints when left empty');
+		o.datatype = 'ip4addr';
 		o.rmempty = true;
 		o.depends('action', 'shutdown');
 
-		// 广播标志（始终显示）
-		if (has_ewk) {
-			o = s.option(form.Flag, 'broadcast', _('Send to broadcast address'));
-		}
+		o = s.option(form.Value, 'control_port', _('Control UDP port'));
+		o.default = uci.get('luci-wolp', 'defaults', 'control_port') || '20250';
+		o.placeholder = '20250';
+		o.datatype = 'port';
+		o.rmempty = false;
+		o.depends('action', 'shutdown');
 
-		// UDP 端口（用于关机）
-		if (has_nc) {
-			o = s.option(form.Value, 'udp_port', _('UDP Port for Shutdown'),
-				_('UDP port to send shutdown command (default: 9)'));
-			o.placeholder = '9';
-			o.datatype = 'port';
-			o.default = '9';
-			o.rmempty = true;
-			o.depends('action', 'shutdown');
-		}
+		o = s.option(form.Value, 'control_secret', _('Control secret'));
+		o.default = uci.get('luci-wolp', 'defaults', 'control_secret') || '';
+		o.placeholder = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+		o.rmempty = false;
+		o.password = true;
+		o.depends('action', 'shutdown');
 
 		return m.render();
 	},
 
-	handleWakeup: function(ev) {
+	handleAction: function() {
 		var map = document.querySelector('#maincontent .cbi-map'),
-			data = this.formdata;
+			data = this.formdata,
+			self = this;
 
-		return dom.callClassMethod(map, 'save').then(L.bind(function() {
-			if (!data.wol.mac)
-				return alert(_('No target host specified!'));
-
+		return dom.callClassMethod(map, 'save').then(function() {
 			var action = data.wol.action || 'wake';
 
 			if (action === 'wake') {
-				// 唤醒操作：使用 etherwake
-				if (!data.has_ewk) {
-					return alert(_('etherwake is not installed!'));
-				}
+				var mac = self.normalizeMac(data.wol.mac),
+					iface = String(data.wol.iface || '').trim();
 
-				var args = ['-D'];
+				if (!data.has_ewk)
+					throw new Error(_('etherwake is not installed'));
+				if (!mac || !iface)
+					throw new Error(_('A target MAC address and network interface are required'));
 
-				if (data.wol.iface)
-					args.push('-i', data.wol.iface);
-
-				if (data.wol.broadcast == '1')
-					args.push('-b');
-
-				args.push(data.wol.mac);
-
-				ui.showModal(_('Waking host'), [
-					E('p', { 'class': 'spinning' }, [ _('Starting WoL utility…') ])
-				]);
-
-				return this.callWolpExec('/usr/bin/etherwake', args).then(this.parseExecResult).then(function(res) {
-					ui.showModal(_('Waking host'), [
-						res.stdout ? E('pre', [ res.stdout ]) : E('p', [ _('Command executed successfully') ]),
-						res.stderr ? E('pre', { 'style': 'color: red' }, [ res.stderr ]) : '',
-						E('div', { 'class': 'right' }, [
-							E('button', {
-								'class': 'cbi-button cbi-button-primary',
-								'click': ui.hideModal
-							}, [ _('Dismiss') ])
-						])
-					]);
-				}).catch(function(err) {
-					ui.hideModal();
-					ui.addNotification(null, [
-						E('p', [ _('Waking host failed') + ': ', err.message || err ])
-					]);
-				});
-
-			} else {
-				// 关机操作：使用 netcat
-				if (!data.has_nc) {
-					return alert(_('netcat is not installed!'));
-				}
-
-				var udpPort = data.wol.udp_port || '9';
-				var extraData = data.wol.extra_data;
-
-				if (!extraData) {
-					extraData = 'FF:FF:FF:FF:FF:FF';
-					data.wol.extra_data = extraData;
-				}
-				var shutdownAddr = this.resolveShutdownAddress(data.wol.mac);
-
-				if (!shutdownAddr) {
-					return alert(_('No IPv4 address available for shutdown target. Ensure the host is online or has a host hint entry.'));
-				}
-
-				// 构造 WOL 数据包
-				var macBytes = data.wol.mac.replace(/:/g, '').match(/.{2}/g);
-				var extraBytes = extraData.replace(/:/g, '').match(/.{2}/g);
-
-				var packet = 'FFFFFFFFFFFF';
-				for (var i = 0; i < 16; i++) {
-					packet += macBytes.join('');
-				}
-				packet += extraBytes.join('');
-
-				var hexBytes = packet.match(/.{2}/g);
-
-				var cmd = '(printf "' + hexBytes.map(function(b) { return '\\x' + b; }).join('') + '" | /usr/bin/netcat -u -w1 ' + shutdownAddr + ' ' + udpPort + ') >/dev/null 2>&1 &';
-
-				ui.showModal(_('Shutting down host'), [
-					E('p', { 'class': 'spinning' }, [ _('Sending shutdown command…') ])
-				]);
-
-				return this.callWolpExec('/bin/sh', [ '-c', cmd ]).then(this.parseExecResult).then(function(res) {
-					ui.showModal(_('Shutting down host'), [
-						E('p', [ _('Shutdown request sent') ]),
-						res.stdout ? E('pre', [ res.stdout ]) : '',
-						res.stderr ? E('pre', { 'style': 'color: red' }, [ res.stderr ]) : '',
-						E('div', { 'class': 'right' }, [
-							E('button', {
-								'class': 'cbi-button cbi-button-primary',
-								'click': ui.hideModal
-							}, [ _('Dismiss') ])
-						])
-					]);
-				}).catch(function(err) {
-					ui.hideModal();
-					ui.addNotification(null, [
-						E('p', [ _('Shutting down host failed') + ': ', err.message || err ])
+				ui.showModal(_('Waking host'), [ E('p', { 'class': 'spinning' }, [ _('Sending standard Wake-on-LAN packet…') ]) ]);
+				return self.callWolpWake(mac, iface, data.wol.broadcast === '1').then(self.parseExecResult).then(function() {
+					ui.showModal(_('Wake request sent'), [
+						E('p', [ _('The packet was transmitted. The device state will remain unconfirmed until its Client responds.') ]),
+						E('div', { 'class': 'right' }, [ E('button', { 'class': 'cbi-button cbi-button-primary', 'click': ui.hideModal }, [ _('Dismiss') ]) ])
 					]);
 				});
 			}
-		}, this));
+
+			if (!data.has_control)
+				throw new Error(_('The WOLP control helper or its dependencies are not installed'));
+
+			var target = self.controlTarget(data);
+			ui.showModal(_('Checking Client status'), [ E('p', { 'class': 'spinning' }, [ _('Waiting for an authenticated Client acknowledgement…') ]) ]);
+
+			return self.saveControlDefaults(target).then(function() {
+				return self.requestControl('status', target);
+			}).then(function(status) {
+				if (!status.ack || status.state !== 'RUNNING')
+					throw new Error(_('The Client did not confirm that it is running') + ': ' + (status.error || _('no acknowledgement')));
+
+				ui.showModal(_('Scheduling shutdown'), [ E('p', { 'class': 'spinning' }, [ _('Client is running. Sending authenticated shutdown request…') ]) ]);
+				return self.requestControl('shutdown', target);
+			}).then(function(result) {
+				if (!result.ack || (result.state !== 'SCHEDULED' && result.state !== 'ALREADY_SCHEDULED'))
+					throw new Error(_('The Client did not accept the shutdown request') + ': ' + (result.error || _('no acknowledgement')));
+
+				ui.showModal(_('Shutdown acknowledged'), [
+					E('p', [ result.state === 'SCHEDULED' ? _('The Client scheduled shutdown in ') + result.delay + _(' seconds.') : _('The Client already has a shutdown scheduled.') ]),
+					E('div', { 'class': 'right' }, [ E('button', { 'class': 'cbi-button cbi-button-primary', 'click': ui.hideModal }, [ _('Dismiss') ]) ])
+				]);
+			});
+		}).catch(function(err) {
+			ui.hideModal();
+			ui.addNotification(null, [ E('p', [ _('Operation failed') + ': ' + (err.message || err) ]) ]);
+		});
 	},
 
 	addFooter: function() {
-		return E('div', { 'class': 'cbi-page-actions' },
-			[
-				E('button', {
-					'class': 'cbi-button cbi-button-save',
-					'click': L.ui.createHandlerFn(this, 'handleWakeup')
-				}, [ _('Execute') ])
-			]
-		);
+		return E('div', { 'class': 'cbi-page-actions' }, [
+			E('button', {
+				'class': 'cbi-button cbi-button-apply',
+				'click': L.ui.createHandlerFn(this, 'handleAction')
+			}, [ _('Execute') ])
+		]);
 	}
 });

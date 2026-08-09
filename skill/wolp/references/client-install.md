@@ -60,19 +60,19 @@ Receiver config:
 - Binary path: `/usr/local/bin/wolp`
 - Web UI path: `/usr/share/wolp/webui` when installed
 - Service name: `wolp.service`
-- Default `extra_data`: `FF:FF:FF:FF:FF:FF`
-- Default `udp_port`: `9`
+- Default `control_port`: `20250`
+- `control_secret`: generated on first Client startup; copy it to the sender
 - Default `shutdown_delay`: `60`
 - Default HTTP UI port: `2025`
 
 When configuring shutdown support:
 
 - Set `mac_address` to the receiver machine MAC that should match the sender packet.
-- Set `extra_data` to match the sender `--extra-data`.
-- Set `udp_port` to match the sender `--port`.
+- Set `control_port` to match the sender `--port`.
+- Copy `control_secret` to the sender `--control-secret` or device inventory.
 - Set `shutdown_delay`, `username`, and `password` as requested.
 
 Keep protocol roles clear:
 
 - Sender-side `interface` matters only for `wake`.
-- Receiver-side `udp_port` and `extra_data` matter only for `shutdown`.
+- Receiver-side `control_port` and `control_secret` matter only for authenticated shutdown control.

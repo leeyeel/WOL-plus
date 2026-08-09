@@ -32,8 +32,7 @@ class WolpPowerTests(unittest.TestCase):
             self.assertEqual(
                 result["defaults"],
                 {
-                    "extra_data": "FF:FF:FF:FF:FF:FF",
-                    "port": 9,
+                    "control_port": 20250,
                 },
             )
             self.assertEqual(result["devices"], {})
@@ -53,18 +52,76 @@ class WolpPowerTests(unittest.TestCase):
         self.assertEqual(result["frame_length"], 116)
         self.assertEqual(result["target_mac"], "AA:BB:CC:DD:EE:FF")
 
-    def test_shutdown_device_dry_run_builds_wol_plus_payload(self):
+    def test_shutdown_device_dry_run_builds_authenticated_control_requests(self):
+        secret = "11" * 32
         result = WOLP.shutdown_device(
             host="192.168.1.50",
             mac="AA:BB:CC:DD:EE:FF",
-            extra_data="11:22:33:44:55:66",
-            port=9,
+            control_secret=secret,
+            port=20250,
             dry_run=True,
         )
 
-        self.assertEqual(result["payload_length"], 108)
-        self.assertEqual(result["extra_data"], "11:22:33:44:55:66")
         self.assertEqual(result["host"], "192.168.1.50")
+        self.assertEqual(result["port"], 20250)
+        self.assertEqual(result["target_mac"], "aa:bb:cc:dd:ee:ff")
+        self.assertEqual(result["status"]["command"], "status")
+        self.assertEqual(result["shutdown"]["command"], "shutdown")
+        self.assertFalse(result["acknowledged"])
+
+    def test_shutdown_device_requires_status_and_shutdown_acknowledgements(self):
+        secret = "22" * 32
+        sent_commands = []
+
+        class FakeSocket:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def settimeout(self, timeout):
+                self.timeout = timeout
+
+            def connect(self, address):
+                self.address = address
+
+            def send(self, payload):
+                fields = payload.decode("ascii").split()
+                sent_commands.append(fields[1])
+                state = "RUNNING" if fields[1] == WOLP.CONTROL_STATUS else "SCHEDULED"
+                delay = "0" if state == "RUNNING" else "60"
+                canonical = "|".join((
+                    WOLP.CONTROL_PROTOCOL,
+                    "ACK",
+                    fields[1],
+                    fields[2],
+                    fields[3],
+                    fields[4],
+                    state,
+                    delay,
+                ))
+                signature = WOLP.control_signature(secret, canonical)
+                self.response = (
+                    f"{WOLP.CONTROL_PROTOCOL} ACK {fields[1]} {fields[2]} {fields[3]} "
+                    f"{fields[4]} {state} {delay} {signature}\n"
+                ).encode("ascii")
+
+            def recv(self, size):
+                return self.response
+
+        with patch.object(WOLP.socket, "socket", return_value=FakeSocket()):
+            result = WOLP.shutdown_device(
+                host="192.168.1.50",
+                mac="AA:BB:CC:DD:EE:FF",
+                control_secret=secret,
+                port=20250,
+                dry_run=False,
+            )
+
+        self.assertEqual(sent_commands, [WOLP.CONTROL_STATUS, WOLP.CONTROL_SHUTDOWN])
+        self.assertEqual(result["shutdown"]["state"], "SCHEDULED")
+        self.assertTrue(result["acknowledged"])
 
     def test_list_interfaces_returns_local_interfaces(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -246,8 +303,8 @@ class WolpPowerTests(unittest.TestCase):
                 fields={
                     "mac": "AA:BB:CC:DD:EE:FF",
                     "host": "192.168.1.50",
-                    "extra_data": "11:22:33:44:55:66",
-                    "port": 9,
+                    "control_secret": "44" * 32,
+                    "control_port": 20250,
                 },
             )
 
@@ -336,7 +393,7 @@ class WolpPowerTests(unittest.TestCase):
             target.write_text(
                 json.dumps(
                     {
-                        "defaults": {"port": 9, "extra_data": "FF:FF:FF:FF:FF:FF"},
+                        "defaults": {"control_port": 20250},
                         "devices": {
                             "nas": {
                                 "mac": "AA:BB:CC:DD:EE:FF",
@@ -372,7 +429,7 @@ class WolpPowerTests(unittest.TestCase):
             target.write_text(
                 json.dumps(
                     {
-                        "defaults": {"port": 9, "extra_data": "FF:FF:FF:FF:FF:FF"},
+                        "defaults": {"control_port": 20250},
                         "devices": {
                             "nas": {
                                 "mac": "AA:BB:CC:DD:EE:FF",

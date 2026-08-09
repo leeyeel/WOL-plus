@@ -1,6 +1,6 @@
 # Wake On LAN Plus
 
-> 通过标准 Wake-on-LAN 唤醒设备，并通过带 6 字节附加数据的 WOL-plus 数据包远程关机。
+> 通过标准 Wake-on-LAN 唤醒设备，并通过带认证确认的 UDP 控制协议远程关机。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -22,8 +22,8 @@ Wake On LAN Plus 的核心是 `Client` 接收端；发送端可以按需要选�
 
 1. 从 [Releases](https://github.com/leeyeel/WOL-plus/releases) 下载 OpenWrt 端和 Client 端安装包
 2. 在目标电脑上先安装 Client 端
-3. 打开 Client Web UI，设置 `extra_data`、UDP 端口和关机倒计时
-4. 在 OpenWrt 的 LuCI 页面里填入同样的 `extra_data` 和目标设备 MAC
+3. 打开 Client Web UI，记录控制端口、控制密钥和关机倒计时
+4. 在 OpenWrt 的 LuCI 页面里填入同样的控制端口、控制密钥和目标设备 MAC
 5. 测试唤醒和关机
 
 ## 适用场景
@@ -106,15 +106,15 @@ opkg install /tmp/luci-i18n-wolp-zh-cn_<version>_<arch>.ipk
 
 在 OpenWrt 页面中主要需要填写：
 
-- 目标设备 MAC 地址
-- 关机附加数据 `extra_data`
-- 关机 UDP 端口，默认 `9`
+- 目标设备 MAC 地址和 Client IPv4 地址
+- 控制 UDP 端口，默认 `20250`
+- 从 Client 端复制的 64 位十六进制控制密钥
 
 说明：
 
-- 唤醒使用标准 WOL Magic Packet
-- 关机使用 WOL-plus 包，格式为 `FF*6 + MAC*16 + extra_data(6字节)`
-- `extra_data` 必须与 Client 端配置完全一致
+- 唤醒使用标准二层 WOL Magic Packet
+- 关机先请求 Client 状态，只有收到签名的 `RUNNING` 确认后才发送关机请求
+- 关机请求和响应均带时间戳、随机 nonce 与 HMAC-SHA256，且不包含 Magic Packet 前缀
 
 ## Client 端安装与使用
 
@@ -194,11 +194,12 @@ Linux Client 默认路径如下：
 
 Client 端重点配置项：
 
-- `extra_data`
-  - 必须与 OpenWrt 端保持一致
-- `udp_port`
-  - 默认 `9`
-  - 必须与 OpenWrt 端保持一致
+- `control_port`
+  - 默认 `20250`
+  - 必须与 OpenWrt/Agent 发送端保持一致
+- `control_secret`
+  - 首次启动时自动生成 64 位十六进制密钥
+  - 必须复制到 OpenWrt/Agent 发送端
 - `shutdown_delay`
   - 收到合法关机包后延迟多少秒执行关机
 - `username` / `password`
@@ -230,8 +231,8 @@ ExecStart=/usr/local/bin/wolp --backend-only
 
 仓库里的默认配置值是：
 
-- `extra_data = FF:FF:FF:FF:FF:FF`
-- `udp_port = 9`
+- `control_port = 20250`
+- `control_secret` 首次启动时自动生成
 - `shutdown_delay = 60`
 
 ## 推荐使用流程
@@ -253,16 +254,16 @@ ExecStart=/usr/local/bin/wolp --backend-only
 记录并确认这些值：
 
 - 目标设备 MAC 地址
-- `extra_data`
-- `udp_port`
+- `control_port`
+- `control_secret`
 
 ### 3. 在 OpenWrt 端填写同样的参数
 
 在 LuCI 页面中配置：
 
-- 目标 MAC 地址
-- `extra_data`
-- `udp_port`
+- 目标 MAC 地址和 Client IPv4 地址
+- `control_port`
+- `control_secret`
 
 ### 4. 测试唤醒和关机
 
@@ -272,8 +273,8 @@ ExecStart=/usr/local/bin/wolp --backend-only
 
 - OpenWrt 和目标机器是否互通
 - Client 端服务是否运行正常
-- `extra_data` 是否完全一致
-- `udp_port` 是否完全一致
+- `control_port` 是否完全一致
+- `control_secret` 是否完全一致
 - 目标机器防火墙是否拦截 UDP
 
 ## Skill 使用
@@ -290,7 +291,7 @@ Skill 当前行为：
 - `wake` 在 Linux 上使用原始以太帧发送标准 WOL，需要指定网络接口，并在真实发包时具备 `CAP_NET_RAW` 或 `root`
 - 可以先运行 `python3 skill/wolp/scripts/wolp_power.py wake --list-interfaces` 枚举本机网卡，优先选择 `preferred=true` 且 `operstate=up` 的非虚拟接口
 - 也可以直接用 `python3 skill/wolp/scripts/wolp_power.py wake --auto-interface --mac <MAC> --dry-run` 让脚本自动选最优接口
-- `shutdown` 继续使用 UDP 发送 WOL-plus 数据包
+- `shutdown` 先验证 Client 的签名状态响应，再发送认证 UDP 关机请求
 - 默认设备清单写入用户配置目录，而不是 skill 安装目录：
   - `WOLP_DEVICE_FILE`
   - 或 `XDG_CONFIG_HOME/wolp/devices.json`
@@ -335,12 +336,9 @@ cp -r skill/wolp <your-codex-skills-dir>/
 
 关机：
 
-- OpenWrt 或 skill 发送带 6 字节 `extra_data` 的 WOL-plus UDP 包
-- Client 端收到后校验：
-  - 目标 MAC 是否匹配
-  - `extra_data` 是否匹配
-  - UDP 端口是否匹配
-- 校验通过后，Client 端进入关机倒计时
+- OpenWrt 或 skill 向 Client 的单播 UDP 控制端口发送签名 `STATUS` 请求
+- Client 返回 `RUNNING` ACK 后，发送端才发送签名 `SHUTDOWN` 请求
+- Client 返回 `SCHEDULED` 或 `ALREADY_SCHEDULED` ACK 后进入关机倒计时
 
 ## 许可证
 

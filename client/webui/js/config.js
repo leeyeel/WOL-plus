@@ -3,18 +3,13 @@
  */
 
 const Config = {
-    defaultExtraData: 'FF:FF:FF:FF:FF:FF',
-
     /**
      * 从 DOM 读取配置数据
      * @returns {Object} 配置对象
      */
     readFromDOM() {
-        const extraData = ExtraInput.getValue().trim() || this.defaultExtraData;
-
         return {
             mac_address: document.getElementById('mac').value.trim(),
-            extra_data: extraData,
             shutdown_delay: document.getElementById('shutdownTime').value.trim()
         };
     },
@@ -26,11 +21,13 @@ const Config = {
     readSettingsFromDOM() {
         const username = document.getElementById('usernameInput').value.trim();
         const newPassword = document.getElementById('newPassword').value;
-        const udpPort = document.getElementById('udpPort').value.trim();
+        const controlPort = document.getElementById('controlPort').value.trim();
+        const controlSecret = document.getElementById('controlSecret').value.trim();
 
         const payload = {
             username,
-            udp_port: udpPort || '9'
+            control_port: controlPort || '20250',
+            control_secret: controlSecret
         };
 
         if (newPassword) {
@@ -46,13 +43,8 @@ const Config = {
      */
     populateDOM(data) {
         document.getElementById('mac').value = data.mac_address || '';
-        // 使用 ExtraInput 模块来设置附加数据
-        if (data.extra_data) {
-            ExtraInput.setValue(data.extra_data);
-        } else {
-            ExtraInput.setValue(this.defaultExtraData);
-        }
-        document.getElementById('udpPort').value = data.udp_port || '9';
+        document.getElementById('controlPort').value = data.control_port || '20250';
+        document.getElementById('controlSecret').value = data.control_secret || '';
         document.getElementById('shutdownTime').value = data.shutdown_delay || '60';
         document.getElementById('usernameInput').value = data.username || 'admin';
         document.getElementById('networkInterface').value = data.interface || '';

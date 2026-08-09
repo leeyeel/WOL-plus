@@ -5,80 +5,108 @@
 import { access, popen } from 'fs';
 
 const etherwake = '/usr/bin/etherwake';
-const netcat = '/usr/bin/netcat';
+const controlHelper = '/usr/libexec/wolp-control';
+const openssl = '/usr/bin/openssl';
 
-
-function shellquote(s) {
-    return "'" + replace(s, "'", "'\\''") + "'";
+function shellquote(value) {
+	return "'" + replace(value, "'", "'\\''") + "'";
 }
 
+function resultFromCommand(command) {
+	const fd = popen(command + ' 2>&1');
+	const result = {
+		stdout: fd.read('all'),
+		stderr: '',
+		code: fd.close()
+	};
+
+	return result;
+}
+
+function requestArgs(request) {
+	return request.args || request;
+}
+
+function validMac(value) {
+	return value && match(value, /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/);
+}
+
+function validInterface(value) {
+	return value && match(value, /^[A-Za-z0-9_.:-]+$/);
+}
+
+function validIPv4(value) {
+	return value && match(value, /^\d{1,3}(?:\.\d{1,3}){3}$/);
+}
+
+function validPort(value) {
+	return value && match(value, /^\d{4,5}$/);
+}
+
+function validSecret(value) {
+	return value && match(value, /^[0-9A-Fa-f]{64}$/);
+}
+
+function hasNetcat() {
+	return !!access('/usr/bin/netcat', 'x') ||
+		!!access('/usr/bin/nc', 'x') ||
+		!!access('/bin/nc', 'x');
+}
 
 const methods = {
 	stat: {
-		call: function(request) {
-			const result = {};
-
-			result.etherwake = false;
-			result.netcat = false;
-
-			if (access(etherwake, "x")) {
-				result.etherwake = true;
-			}
-
-			if (access(netcat, "x")) {
-				result.netcat = true;
-			}
-
-			return result;
+		call: function() {
+			return {
+				etherwake: !!access(etherwake, 'x'),
+				control: !!access(controlHelper, 'x') && hasNetcat() && !!access(openssl, 'x')
+			};
 		}
 	},
 
-	probe: {
-		args: { host: 'string' },
+	wake: {
+		args: { mac: 'string', interface: 'string', broadcast: 'boolean' },
 		call: function(request) {
-			const result = {};
-			const args = request.args || request;
-			const host = args.host;
+			const args = requestArgs(request);
+			const parts = [shellquote(etherwake), shellquote('-D')];
 
-			if (!host || !match(host, /^\d{1,3}(?:\.\d{1,3}){3}$/)) {
-				result.reachable = false;
-				result.code = 1;
-				result.stderr = 'invalid host';
-				return result;
-			}
+			if (!access(etherwake, 'x'))
+				return { stdout: '', stderr: 'etherwake is not installed', code: 1 };
+			if (!validMac(args.mac) || !validInterface(args.interface))
+				return { stdout: '', stderr: 'invalid wake request', code: 1 };
 
-			const fd = popen('/bin/sh -c ' + shellquote('ping -c 1 -W 1 ' + host + ' >/dev/null 2>&1'));
+			parts.push(shellquote('-i'));
+			parts.push(shellquote(args.interface));
+			if (args.broadcast)
+				parts.push(shellquote('-b'));
+			parts.push(shellquote(args.mac));
 
-			result.stdout = fd.read('all');
-			result.stderr = '';
-			result.code = fd.close();
-			result.reachable = !result.code;
-
-			return result;
+			return resultFromCommand(join(' ', parts));
 		}
 	},
 
-	exec: {
-		args: { name: 'string', args: [] },
+	control: {
+		args: { action: 'string', host: 'string', port: 'string', mac: 'string', secret: 'string' },
 		call: function(request) {
-			const result = {};
-			const args = request.args || request;
+			const args = requestArgs(request);
+			const action = args.action;
+			const parts = [shellquote(controlHelper)];
 
-			if (args.name == etherwake || args.name == netcat || args.name == '/bin/sh') {
-				const parts = map(args.args || [], shellquote);
-				const fd = popen(args.name + ' ' + join(' ', parts) + ' 2>&1');
+			if (!access(controlHelper, 'x'))
+				return { stdout: '', stderr: 'WOLP control helper is not installed', code: 1 };
+			if (action != 'status' && action != 'shutdown')
+				return { stdout: '', stderr: 'invalid control action', code: 1 };
+			if (!validIPv4(args.host) || !validPort(args.port) || !validMac(args.mac) || !validSecret(args.secret))
+				return { stdout: '', stderr: 'invalid control request', code: 1 };
 
-				result.stdout = fd.read('all');
-				result.stderr = '';
-				result.code = fd.close();
-			} else {
-				result.stdout = '';
-				result.stderr = 'disallowed';
-				result.code = 1;
-			}
-			return result;
+			parts.push(shellquote(action));
+			parts.push(shellquote(args.host));
+			parts.push(shellquote(args.port));
+			parts.push(shellquote(args.mac));
+			parts.push(shellquote(args.secret));
+
+			return resultFromCommand(join(' ', parts));
 		}
 	}
 };
 
-return { "luci.wolp": methods };
+return { 'luci.wolp': methods };

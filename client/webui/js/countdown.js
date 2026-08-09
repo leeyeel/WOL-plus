@@ -10,7 +10,7 @@ const Countdown = {
      */
     async update() {
         try {
-            const response = await API.getRemaining();
+            const response = await API.getRemaining(Session.getAuthHeader());
             const remaining = parseInt(await response.text());
 
             const el = document.getElementById('remainingTime');

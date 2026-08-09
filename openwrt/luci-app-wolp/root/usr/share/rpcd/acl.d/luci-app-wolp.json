@@ -3,14 +3,14 @@
 		"description": "Grant access to wake-on-lan-plus executables",
 		"read": {
 			"ubus": {
-				"luci.wolp": [ "stat", "probe", "exec" ],
+				"luci.wolp": [ "stat" ],
 				"luci-rpc": [ "getHostHints", "getNetworkDevices" ]
 			},
 			"uci": [ "luci-wolp" ]
 		},
 		"write": {
 			"ubus": {
-				"luci.wolp": [ "exec" ]
+				"luci.wolp": [ "wake", "control" ]
 			},
 			"uci": [ "luci-wolp" ]
 		}

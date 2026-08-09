@@ -1,1 +1,4 @@
 config wol 'defaults'
+	option interface 'br-lan'
+	option control_port '20250'
+	option control_secret ''

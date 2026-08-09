@@ -1,6 +1,6 @@
 ---
 name: wolp
-description: Wake or shut down LAN devices from the agent host. Use this when the user wants to power on a device with a raw Ethernet Wake-on-LAN frame or power off a device with a WOL-plus UDP packet, and they can provide the target MAC address plus a network interface for wake or a target IPv4 address for shutdown.
+description: Wake or shut down LAN devices from the agent host. Use this when the user wants to power on a device with a raw Ethernet Wake-on-LAN frame or power off a running WOLP Client with an authenticated UDP control request.
 ---
 
 # wolp
@@ -15,7 +15,7 @@ Supported operations:
 
 - `list`: print the resolved inventory the script will use
 - `wake`: send a standard Wake-on-LAN raw Ethernet frame
-- `shutdown`: send a WOL-plus UDP packet to a target IPv4 address
+- `shutdown`: verify a WOLP Client status ACK, then send an authenticated UDP shutdown request
 
 Runtime properties:
 
@@ -28,7 +28,7 @@ Runtime properties:
   - otherwise `~/.config/wolp/devices.json`
 - The bundled example inventory is `assets/devices.example.json`.
 - Successful non-dry-run operations update the resolved inventory file in the user config path, not inside the skill directory.
-- Packet send confirms local transmission only. It does not prove the remote host changed power state.
+- Wake packet transmission confirms only local transmission. Shutdown is acknowledged only after the Client verifies and accepts the request.
 
 Minimum required inputs:
 
@@ -38,8 +38,8 @@ Minimum required inputs:
 - Shutdown:
   - target MAC address
   - target IPv4 address
-  - optional `extra_data`, default `FF:FF:FF:FF:FF:FF`
-  - optional UDP port, default `9`
+  - 64-character hexadecimal `control_secret`
+  - optional UDP control port, default `20250`
 
 Execution policy:
 
@@ -70,8 +70,7 @@ Inventory workflow:
 ```json
 {
   "defaults": {
-    "port": 9,
-    "extra_data": "FF:FF:FF:FF:FF:FF"
+    "control_port": 20250
   },
   "devices": {
     "nas": {
@@ -82,10 +81,10 @@ Inventory workflow:
     "desktop": {
       "mac": "11:22:33:44:55:66",
       "host": "192.168.1.60",
-      "extra_data": "12:34:56:78:9A:BC",
+      "control_secret": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       "last_action": "shutdown",
       "last_success_at": "2026-03-21T00:00:00Z",
-      "port": 9
+      "control_port": 20250
     }
   }
 }
@@ -100,7 +99,7 @@ python3 skill/wolp/scripts/wolp_power.py wake --auto-interface --mac AA:BB:CC:DD
 python3 skill/wolp/scripts/wolp_power.py wake --device nas
 python3 skill/wolp/scripts/wolp_power.py shutdown --device nas
 python3 skill/wolp/scripts/wolp_power.py wake --mac AA:BB:CC:DD:EE:FF --interface eth0
-python3 skill/wolp/scripts/wolp_power.py shutdown --host 192.168.1.50 --mac AA:BB:CC:DD:EE:FF --extra-data FF:FF:FF:FF:FF:FF --port 9
+python3 skill/wolp/scripts/wolp_power.py shutdown --host 192.168.1.50 --mac AA:BB:CC:DD:EE:FF --control-secret <64-hex-secret> --port 20250
 ```
 
 Safe preview commands:
@@ -114,7 +113,7 @@ Failure handling:
 
 - If the user does not provide enough information, ask only for the missing MAC, wake interface, or shutdown target IPv4.
 - If `wake --auto-interface` fails, run `wake --list-interfaces` and choose a `preferred=true` physical LAN NIC explicitly.
-- If `shutdown` succeeds locally but the target does not power off, verify receiver-side `extra_data`, `udp_port`, firewall rules, and that the WOL-plus client is running.
+- If `shutdown` is not acknowledged, verify the Client service, `control_port`, `control_secret`, firewall rules, and target IPv4 address.
 - If `wake` fails locally, verify Linux host support, raw-socket permission, and that the chosen interface is the correct LAN NIC.
 - If the user needs receiver installation or configuration, read `references/client-install.md`.
 

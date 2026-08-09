@@ -133,7 +133,7 @@ pushd "$REPO_ROOT/client/src" >/dev/null
 GOOS=linux GOARCH="$GO_ARCH" CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o "$BIN_DIR/wolp" .
 popd >/dev/null
 
-install -m 0644 "$REPO_ROOT/client/wolp.json" "$CONFIG_DIR/wolp.json"
+install -m 0600 "$REPO_ROOT/client/wolp.json" "$CONFIG_DIR/wolp.json"
 if [[ "$INCLUDE_WEBUI" -eq 1 ]]; then
     cp -R "$REPO_ROOT/client/webui/." "$WEBUI_DIR/"
     install -m 0644 "$REPO_ROOT/client/systemd/wolp.service" "$SYSTEMD_DIR/wolp.service"
@@ -182,7 +182,7 @@ install -d %{buildroot}/usr/local/bin
 install -d %{buildroot}/usr/local/etc/wolp
 install -d %{buildroot}/usr/lib/systemd/system
 install -m 0755 "$BIN_DIR/wolp" %{buildroot}/usr/local/bin/wolp
-install -m 0644 "$CONFIG_DIR/wolp.json" %{buildroot}/usr/local/etc/wolp/wolp.json
+install -m 0600 "$CONFIG_DIR/wolp.json" %{buildroot}/usr/local/etc/wolp/wolp.json
 $RPM_WEBUI_INSTALL_BLOCK
 install -m 0644 "$SYSTEMD_DIR/wolp.service" %{buildroot}/usr/lib/systemd/system/wolp.service
 

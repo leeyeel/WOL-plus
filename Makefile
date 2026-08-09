@@ -7,7 +7,7 @@ INSTALL_WEBUI ?= 1
 
 all:
 	@echo "build wolp"
-	cd client/src && go build -o ../../wolp main.go
+	cd client/src && go build -o ../../wolp .
 
 install:
 	@echo "Use 'make install' to install the service."
@@ -17,7 +17,7 @@ install:
 
 	# 安装配置文件
 	install -d $(CONFIGDIR)
-	install -m 644 client/wolp.json $(CONFIGDIR)/wolp.json
+	install -m 600 client/wolp.json $(CONFIGDIR)/wolp.json
 
 	# 按需安装 webui
 	if [ "$(INSTALL_WEBUI)" != "0" ]; then \

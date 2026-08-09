@@ -73,7 +73,7 @@ pushd "$REPO_ROOT/client/src" >/dev/null
 GOOS=linux GOARCH="$ARCH" CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o "$BIN_DIR/wolp" .
 popd >/dev/null
 
-install -m 0644 "$REPO_ROOT/client/wolp.json" "$ETC_DIR/wolp.json"
+install -m 0600 "$REPO_ROOT/client/wolp.json" "$ETC_DIR/wolp.json"
 if [[ "$INCLUDE_WEBUI" -eq 1 ]]; then
     cp -R "$REPO_ROOT/client/webui/." "$WEBUI_DIR/"
     install -m 0644 "$REPO_ROOT/client/systemd/wolp.service" "$SYSTEMD_DIR/wolp.service"

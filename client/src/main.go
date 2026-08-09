@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	cryptorand "crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -28,8 +29,8 @@ import (
 type Config struct {
 	MacAddress    string `json:"mac_address"`
 	Interface     string `json:"interface"`
-	ExtraData     string `json:"extra_data"`
-	UDPPort       string `json:"udp_port"`
+	ControlPort   string `json:"control_port"`
+	ControlSecret string `json:"control_secret"`
 	ShutdownDelay string `json:"shutdown_delay"`
 	Username      string `json:"username"`
 	Password      string `json:"password"`
@@ -38,8 +39,8 @@ type Config struct {
 type ConfigPatch struct {
 	MacAddress    *string `json:"mac_address"`
 	Interface     *string `json:"interface"`
-	ExtraData     *string `json:"extra_data"`
-	UDPPort       *string `json:"udp_port"`
+	ControlPort   *string `json:"control_port"`
+	ControlSecret *string `json:"control_secret"`
 	ShutdownDelay *string `json:"shutdown_delay"`
 	Username      *string `json:"username"`
 	Password      *string `json:"password"`
@@ -125,12 +126,12 @@ func loadConfig(path string) {
 		if err != nil {
 			log.Fatalf("Error: %v", err)
 		}
-		config.ExtraData = "FF:FF:FF:FF:FF:FF"
-		config.UDPPort = "9"
+		config.ControlPort = "20250"
+		config.ControlSecret = generateControlSecret()
 		config.ShutdownDelay = "60"
 		config.Username = "admin"
 		config.Password = "admin123"
-		log.Printf("Initial config: %+v", config)
+		log.Printf("Initial config: interface=%s mac=%s control_port=%s", config.Interface, config.MacAddress, config.ControlPort)
 		if err := saveConfig(path, config); err != nil {
 			log.Fatalf("Failed to save config: %v", err)
 		}
@@ -148,18 +149,35 @@ func loadConfig(path string) {
 	if config.Interface == "" || config.MacAddress == "" {
 		create_and_init()
 	}
-	config.ExtraData = normalizeExtraData(config.ExtraData)
 	config.MacAddress, err = normalizeMACAddress(config.MacAddress)
 	if err != nil {
 		log.Fatalf("Failed to validate mac_address: %v", err)
 	}
-	config.UDPPort, err = normalizeUDPPort(config.UDPPort)
+	config.ControlPort, err = normalizeControlPort(config.ControlPort)
 	if err != nil {
-		log.Fatalf("Failed to validate udp_port: %v", err)
+		log.Fatalf("Failed to validate control_port: %v", err)
+	}
+	migratedControlConfig := false
+	if config.ControlSecret == "" {
+		config.ControlSecret = generateControlSecret()
+		migratedControlConfig = true
+	} else {
+		config.ControlSecret, err = normalizeControlSecret(config.ControlSecret)
+		if err != nil {
+			log.Fatalf("Failed to validate control_secret: %v", err)
+		}
 	}
 	config.ShutdownDelay, err = normalizeShutdownDelay(config.ShutdownDelay)
 	if err != nil {
 		log.Fatalf("Failed to validate shutdown_delay: %v", err)
+	}
+	if migratedControlConfig {
+		if err := saveConfig(path, config); err != nil {
+			log.Fatalf("Failed to migrate control configuration: %v", err)
+		}
+	}
+	if err := os.Chmod(path, 0600); err != nil {
+		log.Printf("Failed to restrict config file permissions: %v", err)
 	}
 }
 
@@ -173,47 +191,14 @@ func saveConfig(path string, cfg Config) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create the config file: %v", err)
 	}
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, 0600)
 }
 
 type listenerConfig struct {
-	Interface  string
-	MacAddress string
-	ExtraData  string
-	UDPPort    string
-}
-
-func normalizeExtraData(value string) string {
-	value = strings.ToUpper(strings.TrimSpace(value))
-	if value == "" {
-		return "FF:FF:FF:FF:FF:FF"
-	}
-
-	clean := strings.ReplaceAll(value, ":", "")
-	if len(clean) != 12 {
-		log.Printf("Invalid Extra Data length %q, fallback to FF:FF:FF:FF:FF:FF", value)
-		return "FF:FF:FF:FF:FF:FF"
-	}
-
-	if _, err := hex.DecodeString(clean); err != nil {
-		log.Printf("Invalid Extra Data format %q, fallback to FF:FF:FF:FF:FF:FF", value)
-		return "FF:FF:FF:FF:FF:FF"
-	}
-
-	parts := make([]string, 0, 6)
-	for i := 0; i < len(clean); i += 2 {
-		parts = append(parts, clean[i:i+2])
-	}
-
-	return strings.Join(parts, ":")
-}
-
-func decodeMAC(macAddress string) ([]byte, error) {
-	return hex.DecodeString(strings.ReplaceAll(macAddress, ":", ""))
-}
-
-func decodeExtraData(extraData string) ([]byte, error) {
-	return hex.DecodeString(strings.ReplaceAll(normalizeExtraData(extraData), ":", ""))
+	Interface     string
+	MacAddress    string
+	ControlPort   string
+	ControlSecret string
 }
 
 func normalizeMACAddress(value string) (string, error) {
@@ -224,18 +209,37 @@ func normalizeMACAddress(value string) (string, error) {
 	return strings.ToLower(hardwareAddr.String()), nil
 }
 
-func normalizeUDPPort(value string) (string, error) {
+func normalizeControlPort(value string) (string, error) {
 	value = strings.TrimSpace(value)
 	if value == "" {
-		return "9", nil
+		return "20250", nil
 	}
 
 	port, err := strconv.Atoi(value)
-	if err != nil || port < 1 || port > 65535 {
-		return "", fmt.Errorf("must be a number between 1 and 65535")
+	if err != nil || port < 1024 || port > 65535 {
+		return "", fmt.Errorf("must be a number between 1024 and 65535")
 	}
 
 	return strconv.Itoa(port), nil
+}
+
+func generateControlSecret() string {
+	secret := make([]byte, 32)
+	if _, err := cryptorand.Read(secret); err != nil {
+		log.Fatalf("Failed to generate control secret: %v", err)
+	}
+	return hex.EncodeToString(secret)
+}
+
+func normalizeControlSecret(value string) (string, error) {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if len(value) != 64 {
+		return "", fmt.Errorf("must be a 64-character hexadecimal value")
+	}
+	if _, err := hex.DecodeString(value); err != nil {
+		return "", fmt.Errorf("must be a 64-character hexadecimal value")
+	}
+	return value, nil
 }
 
 func normalizeShutdownDelay(value string) (string, error) {
@@ -261,11 +265,11 @@ func applyConfigPatch(current Config, patch ConfigPatch) (Config, error) {
 	if patch.Interface != nil {
 		next.Interface = strings.TrimSpace(*patch.Interface)
 	}
-	if patch.ExtraData != nil {
-		next.ExtraData = normalizeExtraData(*patch.ExtraData)
+	if patch.ControlPort != nil {
+		next.ControlPort = strings.TrimSpace(*patch.ControlPort)
 	}
-	if patch.UDPPort != nil {
-		next.UDPPort = strings.TrimSpace(*patch.UDPPort)
+	if patch.ControlSecret != nil {
+		next.ControlSecret = strings.TrimSpace(*patch.ControlSecret)
 	}
 	if patch.ShutdownDelay != nil {
 		next.ShutdownDelay = strings.TrimSpace(*patch.ShutdownDelay)
@@ -292,10 +296,13 @@ func applyConfigPatch(current Config, patch ConfigPatch) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("invalid mac_address: %w", err)
 	}
-	next.ExtraData = normalizeExtraData(next.ExtraData)
-	next.UDPPort, err = normalizeUDPPort(next.UDPPort)
+	next.ControlPort, err = normalizeControlPort(next.ControlPort)
 	if err != nil {
-		return Config{}, fmt.Errorf("invalid udp_port: %w", err)
+		return Config{}, fmt.Errorf("invalid control_port: %w", err)
+	}
+	next.ControlSecret, err = normalizeControlSecret(next.ControlSecret)
+	if err != nil {
+		return Config{}, fmt.Errorf("invalid control_secret: %w", err)
 	}
 	next.ShutdownDelay, err = normalizeShutdownDelay(next.ShutdownDelay)
 	if err != nil {
@@ -310,10 +317,10 @@ func currentListenerConfig() listenerConfig {
 	defer configMutex.RUnlock()
 
 	return listenerConfig{
-		Interface:  config.Interface,
-		MacAddress: config.MacAddress,
-		ExtraData:  normalizeExtraData(config.ExtraData),
-		UDPPort:    config.UDPPort,
+		Interface:     config.Interface,
+		MacAddress:    config.MacAddress,
+		ControlPort:   config.ControlPort,
+		ControlSecret: config.ControlSecret,
 	}
 }
 
@@ -394,9 +401,9 @@ func getNetworkDevice() (string, string, error) {
 func startUDPListener(ctx context.Context, cfg listenerConfig) {
 	defer listenerWg.Done()
 
-	conn, err := net.ListenPacket("udp4", ":"+cfg.UDPPort)
+	conn, err := net.ListenPacket("udp4", ":"+cfg.ControlPort)
 	if err != nil {
-		log.Printf("Failed to listen on UDP port %s: %v", cfg.UDPPort, err)
+		log.Printf("Failed to listen on UDP control port %s: %v", cfg.ControlPort, err)
 		return
 	}
 	defer conn.Close()
@@ -425,64 +432,20 @@ func startUDPListener(ctx context.Context, cfg listenerConfig) {
 			continue
 		}
 
-		if isShutdownPayload(buf[:n], cfg) {
-			log.Printf("Received valid shutdown UDP packet from %s, initiating shutdown!", addr.String())
-			initiateShutdown()
+		response, accepted := handleControlPacket(buf[:n], cfg, time.Now())
+		if !accepted {
+			continue
 		}
+
+		if _, err := conn.WriteTo(response, addr); err != nil {
+			log.Printf("Failed to send UDP control response to %s: %v", addr.String(), err)
+			continue
+		}
+		log.Printf("Processed authenticated UDP control request from %s", addr.String())
 	}
 }
 
-func isMagicPacketPayload(data []byte, cfg listenerConfig) bool {
-	// 比较两个字节数组是否相等
-	equal := func(a, b []byte) bool {
-		if len(a) != len(b) {
-			return false
-		}
-		for i := range a {
-			if a[i] != b[i] {
-				return false
-			}
-		}
-		return true
-	}
-
-	if len(data) != 108 {
-		return false
-	}
-
-	mac, err := decodeMAC(cfg.MacAddress)
-	if err != nil {
-		log.Printf("Invalid MAC address: %v", err)
-		return false
-	}
-
-	// 检查同步字节部分是否是 0xFF
-	if !equal(data[0:6], []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}) {
-		return false
-	}
-
-	// 检查目标 MAC 地址是否匹配
-	for i := 6; i < 102; i += 6 {
-		if !equal(data[i:i+6], mac) {
-			return false
-		}
-	}
-
-	extraData := data[102:108]
-	extraDataConfig, err := decodeExtraData(cfg.ExtraData)
-	if err != nil || len(extraDataConfig) != 6 {
-		log.Printf("Invalid Extra Data format (expected 6 bytes): %s", cfg.ExtraData)
-		return false
-	}
-
-	return equal(extraData, extraDataConfig)
-}
-
-func isShutdownPayload(data []byte, cfg listenerConfig) bool {
-	return isMagicPacketPayload(data, cfg)
-}
-
-func initiateShutdown() {
+func initiateShutdown() (string, int) {
 	configMutex.RLock()
 	shutdownDelay := config.ShutdownDelay
 	configMutex.RUnlock()
@@ -506,7 +469,7 @@ func initiateShutdown() {
 
 	if shutdownTimer != nil {
 		log.Println("Shutdown already scheduled.")
-		return
+		return "ALREADY_SCHEDULED", int(shutdownDuration / time.Second)
 	}
 
 	num, err := strconv.Atoi(shutdownDelay)
@@ -516,18 +479,24 @@ func initiateShutdown() {
 		num = 60
 	}
 
-	if shutdownTimer != nil {
-		shutdownTimer.Stop()
-		log.Println("The previous shutdown task was canceled.")
-	}
 	startTime = time.Now()
 	shutdownDuration = time.Duration(num) * time.Second
 	shutdownTimer = time.NewTimer(shutdownDuration)
+	timer := shutdownTimer
 	log.Printf("Shutdown scheduled in %s seconds. Use web UI to cancel.", shutdownDelay)
 	go func() {
-		<-shutdownTimer.C
+		<-timer.C
+		shutdownMutex.Lock()
+		if shutdownTimer != timer {
+			shutdownMutex.Unlock()
+			return
+		}
+		shutdownTimer = nil
+		shutdownMutex.Unlock()
 		executeShutdown()
 	}()
+
+	return "SCHEDULED", num
 }
 
 // 取消关机任务
@@ -659,15 +628,15 @@ func startHTTPServer() {
 		safeConfig := struct {
 			MacAddress    string `json:"mac_address"`
 			Interface     string `json:"interface"`
-			ExtraData     string `json:"extra_data"`
-			UDPPort       string `json:"udp_port"`
+			ControlPort   string `json:"control_port"`
+			ControlSecret string `json:"control_secret"`
 			ShutdownDelay string `json:"shutdown_delay"`
 			Username      string `json:"username"`
 		}{
 			MacAddress:    config.MacAddress,
 			Interface:     config.Interface,
-			ExtraData:     config.ExtraData,
-			UDPPort:       config.UDPPort,
+			ControlPort:   config.ControlPort,
+			ControlSecret: config.ControlSecret,
 			ShutdownDelay: config.ShutdownDelay,
 			Username:      config.Username,
 		}
@@ -677,7 +646,7 @@ func startHTTPServer() {
 
 	api.HandleFunc("/config", apiAuthMiddleware(handleConfigUpdate)).Methods("POST")
 	api.HandleFunc("/cancel", apiAuthMiddleware(cancelShutdownTimer)).Methods("POST")
-	api.HandleFunc("/remaining", getRemainingTime).Methods("GET")
+	api.HandleFunc("/remaining", apiAuthMiddleware(getRemainingTime)).Methods("GET")
 
 	r.PathPrefix("/").Handler(basicAuthMiddleware(http.FileServer(http.Dir(webuiPath))))
 

@@ -35,8 +35,10 @@ const API = {
      * 获取剩余时间
      * @returns {Promise<Response>}
      */
-    getRemaining() {
-        return fetch('/api/remaining');
+    getRemaining(authHeader) {
+        return fetch('/api/remaining', {
+            headers: { 'Authorization': authHeader }
+        });
     },
 
     /**
