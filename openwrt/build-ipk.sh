@@ -97,7 +97,9 @@ EOF
 /etc/init.d/uhttpd restart 2>/dev/null || true
 
 # 清理 LuCI 服务端缓存，避免旧资源残留
-rm -rf /tmp/luci-* 2>/dev/null || true
+for cache in /tmp/luci-*; do
+    [ -d "$cache" ] && rm -rf "$cache"
+done
 
 echo "luci-app-wolp installed successfully!"
 echo "Access via: Services -> Wake on LAN Plus"
@@ -127,7 +129,9 @@ EOF
 # 重启服务
 /etc/init.d/rpcd restart 2>/dev/null || true
 /etc/init.d/uhttpd restart 2>/dev/null || true
-rm -rf /tmp/luci-* 2>/dev/null || true
+for cache in /tmp/luci-*; do
+    [ -d "$cache" ] && rm -rf "$cache"
+done
 
 echo "luci-app-wolp removed successfully!"
 exit 0
