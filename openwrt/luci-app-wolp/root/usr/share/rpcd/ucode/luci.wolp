@@ -66,14 +66,14 @@ const methods = {
 	},
 
 	wake: {
-		args: { mac: 'string', interface: 'string', broadcast: 'bool' },
+		args: { mac: 'string', interface: 'string', broadcast: true },
 		call: function(request) {
 			return runEtherwake(requestArgs(request), null);
 		}
 	},
 
 	shutdown: {
-		args: { mac: 'string', interface: 'string', broadcast: 'bool', extra_data: 'string' },
+		args: { mac: 'string', interface: 'string', broadcast: true, extra_data: 'string' },
 		call: function(request) {
 			const args = requestArgs(request);
 			return runEtherwake(args, args.extra_data);
