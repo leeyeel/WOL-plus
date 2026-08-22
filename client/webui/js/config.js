@@ -4,6 +4,7 @@
 
 const Config = {
     supportsExtraData: null,
+    settingsBaseline: null,
 
     async getErrorMessage(response, fallback) {
         const message = (await response.text()).trim();
@@ -46,23 +47,47 @@ const Config = {
         document.getElementById('shutdownTime').value = data.shutdown_delay || '60';
         document.getElementById('usernameInput').value = data.username || 'admin';
         document.getElementById('networkInterface').value = data.interface || '';
+        document.getElementById('newPassword').value = '';
+        this.settingsBaseline = {
+            username: document.getElementById('usernameInput').value,
+            extra_data: ExtraInput.getValue(),
+            shutdown_delay: document.getElementById('shutdownTime').value
+        };
+    },
+
+    /**
+     * 判断输入的密码是否与当前会话凭据一致
+     * @param {string} password - 待比较密码
+     * @returns {boolean} 是否为当前密码
+     */
+    isCurrentPassword(password) {
+        const authHeader = Session.getAuthHeader();
+        const prefix = 'Basic ';
+
+        if (!authHeader.startsWith(prefix)) return false;
+
+        try {
+            const credentials = atob(authHeader.slice(prefix.length));
+            const separator = credentials.indexOf(':');
+            return separator >= 0 && credentials.slice(separator + 1) === password;
+        } catch (error) {
+            return false;
+        }
     },
 
     /**
      * 保存设置
-     * @returns {Promise<{success: boolean, message: string, needRelogin?: boolean}>}
+     * @returns {Promise<{success: boolean, message: string, needRelogin?: boolean, unchanged?: boolean}>}
      */
     async saveSettings() {
         if (this.supportsExtraData === false) {
             return { success: false, message: '当前客户端服务版本不支持关机控制密钥，请同时升级 wolp 服务端和 Web 页面。' };
         }
 
-        const payload = this.readSettingsFromDOM();
-        const authHeader = Session.getAuthHeader();
-        const passwordChanged = Boolean(payload.password);
+        const settings = this.readSettingsFromDOM();
         const controlKey = ExtraInput.validate();
 
-        if (!/^\d+$/.test(payload.shutdown_delay)) {
+        if (!/^\d+$/.test(settings.shutdown_delay)) {
             return { success: false, message: '关机延时必须为非负整数秒' };
         }
 
@@ -70,11 +95,32 @@ const Config = {
             return { success: false, message: '关机控制密钥必须为 6 字节十六进制数' };
         }
 
+        const payload = {};
+        const settingsFields = ['username', 'extra_data', 'shutdown_delay'];
+        settingsFields.forEach((field) => {
+            if (!this.settingsBaseline || settings[field] !== this.settingsBaseline[field]) {
+                payload[field] = settings[field];
+            }
+        });
+
+        const passwordChanged = Boolean(settings.password) && !this.isCurrentPassword(settings.password);
+        if (passwordChanged) {
+            payload.password = settings.password;
+        }
+
+        if (Object.keys(payload).length === 0) {
+            document.getElementById('newPassword').value = '';
+            return { success: true, message: '设置未变更', unchanged: true };
+        }
+
+        const authHeader = Session.getAuthHeader();
+        const credentialsChanged = Object.prototype.hasOwnProperty.call(payload, 'username') || passwordChanged;
+
         try {
             const response = await API.saveConfig(payload, authHeader);
 
             if (response.ok) {
-                if (passwordChanged) {
+                if (credentialsChanged) {
                     return {
                         success: true,
                         message: '设置已保存！',
