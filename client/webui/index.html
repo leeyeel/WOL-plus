@@ -74,15 +74,9 @@
                     <span>关机倒计时</span>
                     <span id="statusIndicator" class="status-indicator status-online"></span>
                 </div>
-                <div class="countdown-inputs">
-                    <div class="countdown-field">
-                        <label>设置时长（秒）</label>
-                        <input type="number" id="shutdownTime" placeholder="60">
-                    </div>
-                    <div class="countdown-field">
-                        <label>剩余时间</label>
-                        <input type="text" id="remainingTime" readonly value="0">
-                    </div>
+                <div class="countdown-display" aria-live="polite">
+                    <output id="remainingTime" class="countdown-value">0</output>
+                    <span class="countdown-unit">秒</span>
                 </div>
             </section>
 
@@ -115,16 +109,8 @@
             </section>
 
             <!-- 操作按钮 -->
-            <div class="button-group">
-                <button class="save-btn" onclick="saveConfig()">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                        <polyline points="7 3 7 8 15 8"></polyline>
-                    </svg>
-                    保存配置
-                </button>
-                <button class="cancel-btn" onclick="cancelShutdown()">
+            <div class="button-group button-group-single">
+                <button id="cancelShutdownButton" class="cancel-btn" onclick="cancelShutdown()" disabled>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="10"></circle>
                         <line x1="15" y1="9" x2="9" y2="15"></line>
@@ -151,6 +137,17 @@
             </header>
 
             <section class="network-section">
+                <div class="form-group">
+                    <label for="shutdownTime">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="9"></circle>
+                            <path d="M12 7v5l3 2"></path>
+                        </svg>
+                        关机延时（秒）
+                    </label>
+                    <input type="number" id="shutdownTime" min="0" step="1" inputmode="numeric" placeholder="60">
+                </div>
+
                 <div class="form-group">
                     <label id="extraLabel" class="field-label">
                         <span>

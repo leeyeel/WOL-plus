@@ -205,6 +205,13 @@ button svg {
     transform: translateY(0);
 }
 
+.cancel-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.48;
+    box-shadow: none;
+    transform: none;
+}
+
 /* ========== 头部按钮组 ========== */
 .header-actions {
     display: flex;
@@ -398,29 +405,46 @@ button svg {
     color: var(--color-text-secondary);
 }
 
-.countdown-inputs {
+.countdown-display {
+    min-height: 132px;
     display: flex;
-    gap: var(--spacing-lg);
+    align-items: baseline;
+    justify-content: center;
+    gap: var(--spacing-md);
+    color: var(--color-primary);
 }
 
-.countdown-field {
-    flex: 1;
-}
-
-.countdown-field label {
-    font-size: 12px;
-    color: var(--color-text-muted);
-    margin-bottom: 4px;
+.countdown-value {
     display: block;
+    font-size: 88px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
 }
 
-.countdown-field input {
+.countdown-value.countdown-active {
+    color: var(--color-danger);
+}
+
+.countdown-unit {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+}
+
+.button-group-single .cancel-btn {
     width: 100%;
-    padding: var(--spacing-xl) var(--spacing-xl);
-    border: 2px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    text-align: center;
-    font-size: 15px;
+}
+
+@media (max-width: 480px) {
+    .countdown-display {
+        min-height: 112px;
+    }
+
+    .countdown-value {
+        font-size: 72px;
+    }
 }
 
 /* 网络配置区域 */

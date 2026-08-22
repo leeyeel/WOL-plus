@@ -70,17 +70,6 @@ const App = {
     },
 
     /**
-     * 处理保存配置
-     */
-    async handleSaveConfig() {
-        const result = await Config.save();
-        if (result.success) {
-            await Config.load();
-        }
-        UI.showMessage(result.message, result.success ? 'success' : 'error');
-    },
-
-    /**
      * 处理取消关机
      */
     async handleCancelShutdown() {
@@ -124,10 +113,6 @@ function showSettings() {
 
 function hideSettings() {
     UI.hideSettings();
-}
-
-function saveConfig() {
-    App.handleSaveConfig();
 }
 
 function cancelShutdown() {

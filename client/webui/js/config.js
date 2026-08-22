@@ -16,17 +16,6 @@ const Config = {
     },
 
     /**
-     * 从 DOM 读取配置数据
-     * @returns {Object} 配置对象
-     */
-    readFromDOM() {
-        return {
-            mac_address: document.getElementById('mac').value.trim(),
-            shutdown_delay: document.getElementById('shutdownTime').value.trim()
-        };
-    },
-
-    /**
      * 读取设置数据
      * @returns {Object} 设置对象
      */
@@ -35,7 +24,8 @@ const Config = {
         const newPassword = document.getElementById('newPassword').value;
         const payload = {
             username,
-            extra_data: ExtraInput.getValue()
+            extra_data: ExtraInput.getValue(),
+            shutdown_delay: document.getElementById('shutdownTime').value.trim()
         };
 
         if (newPassword) {
@@ -59,33 +49,6 @@ const Config = {
     },
 
     /**
-     * 保存配置
-     * @returns {Promise<{success: boolean, message: string, needRelogin?: boolean}>}
-     */
-    async save() {
-        const payload = this.readFromDOM();
-        const authHeader = Session.getAuthHeader();
-
-        try {
-            const response = await API.saveConfig(payload, authHeader);
-
-            if (response.ok) {
-                return { success: true, message: '配置已成功更新！' };
-            }
-
-            if (response.status === 401) {
-                Auth.logout();
-                UI.showLoginMessage('认证已过期，请重新登录');
-                return { success: false, message: '认证已过期' };
-            }
-
-            return { success: false, message: await this.getErrorMessage(response, '更新配置失败！') };
-        } catch (error) {
-            return { success: false, message: '网络错误，保存失败！' };
-        }
-    },
-
-    /**
      * 保存设置
      * @returns {Promise<{success: boolean, message: string, needRelogin?: boolean}>}
      */
@@ -98,6 +61,10 @@ const Config = {
         const authHeader = Session.getAuthHeader();
         const passwordChanged = Boolean(payload.password);
         const controlKey = ExtraInput.validate();
+
+        if (!/^\d+$/.test(payload.shutdown_delay)) {
+            return { success: false, message: '关机延时必须为非负整数秒' };
+        }
 
         if (!controlKey.valid) {
             return { success: false, message: '关机控制密钥必须为 6 字节十六进制数' };

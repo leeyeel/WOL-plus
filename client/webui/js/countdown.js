@@ -11,19 +11,23 @@ const Countdown = {
     async update() {
         try {
             const response = await API.getRemaining(Session.getAuthHeader());
-            const remaining = parseInt(await response.text());
+            const remaining = Math.max(0, parseInt(await response.text(), 10) || 0);
 
             const el = document.getElementById('remainingTime');
             const indicator = document.getElementById('statusIndicator');
+            const cancelButton = document.getElementById('cancelShutdownButton');
 
-            el.value = remaining;
+            el.textContent = remaining;
+            cancelButton.disabled = remaining === 0;
 
             if (remaining > 0) {
                 el.classList.add('countdown-active');
                 indicator.className = 'status-indicator status-offline';
+                indicator.setAttribute('aria-label', '关机倒计时进行中');
             } else {
                 el.classList.remove('countdown-active');
                 indicator.className = 'status-indicator status-online';
+                indicator.setAttribute('aria-label', '未计划关机');
             }
         } catch (error) {
             console.error('获取剩余时间失败:', error);
