@@ -21,7 +21,7 @@ BUILD_DIR="$SCRIPT_DIR/ipk-build"
 OUTPUT_DIR="$PROJECT_ROOT/release"
 SOURCE_DIR="$SCRIPT_DIR/luci-app-wolp"
 
-VERSION="${VERSION:-1.0.2}"
+VERSION="${VERSION:-1.0.3}"
 PACKAGE_NAME="luci-app-wolp"
 I18N_PACKAGE_NAME="luci-i18n-wolp-zh-cn"
 # 支持的架构

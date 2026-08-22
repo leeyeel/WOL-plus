@@ -27,8 +27,8 @@ msgstr "发送到广播地址"
 msgid "Target MAC address"
 msgstr "目标 MAC 地址"
 
-msgid "Shutdown discriminator"
-msgstr "关机附加数据"
+msgid "Shutdown control key"
+msgstr "关机控制密钥"
 
 msgid "etherwake is not installed"
 msgstr "未安装 etherwake"
@@ -48,8 +48,8 @@ msgstr "唤醒帧已发送"
 msgid "Dismiss"
 msgstr "关闭"
 
-msgid "Shutdown discriminator must be a 6-byte hexadecimal value"
-msgstr "关机附加数据必须为 6 字节十六进制值"
+msgid "Shutdown control key must contain exactly 6 hexadecimal bytes"
+msgstr "关机控制密钥必须恰好包含 6 字节十六进制数"
 
 msgid "Shutting down host"
 msgstr "正在关闭主机"
@@ -65,15 +65,6 @@ msgstr "操作失败"
 
 msgid "Execute"
 msgstr "执行"
-
-msgid "Target device"
-msgstr "目标设备"
-
-msgid "Choose a device already known to this router before sending a wake or shutdown frame."
-msgstr "在发送唤醒或关机帧前，先选择此路由器已知的设备。"
-
-msgid "Send frame"
-msgstr "发送帧"
 
 msgid "Target source"
 msgstr "目标来源"

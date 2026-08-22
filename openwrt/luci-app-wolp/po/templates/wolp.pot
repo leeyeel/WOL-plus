@@ -24,7 +24,7 @@ msgstr ""
 msgid "Target MAC address"
 msgstr ""
 
-msgid "Shutdown discriminator"
+msgid "Shutdown control key"
 msgstr ""
 
 msgid "etherwake is not installed"
@@ -45,7 +45,7 @@ msgstr ""
 msgid "Dismiss"
 msgstr ""
 
-msgid "Shutdown discriminator must be a 6-byte hexadecimal value"
+msgid "Shutdown control key must contain exactly 6 hexadecimal bytes"
 msgstr ""
 
 msgid "Shutting down host"
@@ -61,15 +61,6 @@ msgid "Operation failed"
 msgstr ""
 
 msgid "Execute"
-msgstr ""
-
-msgid "Target device"
-msgstr ""
-
-msgid "Choose a device already known to this router before sending a wake or shutdown frame."
-msgstr ""
-
-msgid "Send frame"
 msgstr ""
 
 msgid "Target source"

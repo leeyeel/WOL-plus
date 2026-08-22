@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -195,12 +196,13 @@ func normalizeExtraData(value string) (string, error) {
 		return "FF:FF:FF:FF:FF:FF", nil
 	}
 
-	address, err := net.ParseMAC(value)
+	compact := strings.NewReplacer(":", "", "-", "").Replace(value)
+	address, err := hex.DecodeString(compact)
 	if err != nil || len(address) != 6 {
 		return "", fmt.Errorf("must be a 6-byte MAC-style hexadecimal value")
 	}
 
-	return strings.ToUpper(address.String()), nil
+	return strings.ToUpper(net.HardwareAddr(address).String()), nil
 }
 
 func normalizeShutdownDelay(value string) (string, error) {

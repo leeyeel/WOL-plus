@@ -49,6 +49,49 @@ return view.extend({
 		return /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(clean) ? clean : null;
 	},
 
+	normalizeControlKey: function(value) {
+		var raw = String(value || '').trim(),
+			hex;
+
+		if (!/^[0-9A-Fa-f:-]+$/.test(raw))
+			return null;
+
+		hex = raw.replace(/[:-]/g, '');
+		if (!/^[0-9A-Fa-f]{12}$/.test(hex))
+			return null;
+
+		return hex.toUpperCase().match(/.{2}/g).join(':');
+	},
+
+	formatControlKey: function(value) {
+		var hex = String(value || '').replace(/[^0-9A-Fa-f]/g, '').slice(0, 12).toUpperCase(),
+			groups = hex.match(/.{1,2}/g);
+
+		return groups ? groups.join(':') : '';
+	},
+
+	bindControlKeyInput: function(node) {
+		var input = node.querySelector('[data-field$=".extra_data"] input'),
+			self = this;
+
+		if (!input)
+			return;
+
+		input.setAttribute('autocomplete', 'off');
+		input.setAttribute('spellcheck', 'false');
+		input.setAttribute('inputmode', 'text');
+		input.value = this.formatControlKey(input.value);
+
+		input.addEventListener('input', function() {
+			var beforeCaret = input.value.slice(0, input.selectionStart).replace(/[^0-9A-Fa-f]/g, ''),
+				formatted = self.formatControlKey(input.value),
+				caret = self.formatControlKey(beforeCaret).length;
+
+			input.value = formatted;
+			input.setSelectionRange(caret, caret);
+		});
+	},
+
 	deviceLabel: function(device) {
 		var details = [],
 			name = device.name || _('Unnamed device');
@@ -78,6 +121,7 @@ return view.extend({
 	render: function(data) {
 		var stat = data[0] || {},
 			devices = (data[1] || {}).devices || [],
+			self = this,
 			m,
 			s,
 			o;
@@ -97,16 +141,14 @@ return view.extend({
 
 		m = new form.JSONMap(this.formdata, _('Wake on LAN Plus'));
 		s = m.section(form.NamedSection, 'wol');
-		s.tab('target', _('Target device'), _('Choose a device already known to this router before sending a wake or shutdown frame.'));
-		s.tab('send', _('Send frame'));
 
-		o = s.taboption('target', form.ListValue, 'target_mode', _('Target source'));
+		o = s.option(form.ListValue, 'target_mode', _('Target source'));
 		o.value('router', _('Choose a device known to this router'));
 		o.value('manual', _('Enter a MAC address manually'));
 		o.default = this.devices.length ? 'router' : 'manual';
 		o.rmempty = false;
 
-		o = s.taboption('target', form.ListValue, 'target', _('Router device'));
+		o = s.option(form.ListValue, 'target', _('Router device'));
 		if (this.devices.length) {
 			this.devices.forEach(function(device) {
 				o.value(device.mac, this.deviceLabel(device));
@@ -119,40 +161,46 @@ return view.extend({
 		o.depends('target_mode', 'router');
 		o.rmempty = false;
 
-		o = s.taboption('target', form.Value, 'mac', _('Target MAC address'));
+		o = s.option(form.Value, 'mac', _('Target MAC address'));
 		o.description = _('Use this only when the target is not listed above.');
 		o.datatype = 'macaddr';
 		o.rmempty = false;
 		o.depends('target_mode', 'manual');
 
-		o = s.taboption('target', form.Button, 'refresh_devices', _('Device list'));
+		o = s.option(form.Button, 'refresh_devices', _('Device list'));
 		o.inputtitle = _('Refresh');
 		o.inputstyle = 'action';
 		o.onclick = function() {
 			window.location.reload();
 		};
 
-		o = s.taboption('send', form.ListValue, 'action', _('Action'));
+		o = s.option(form.ListValue, 'action', _('Action'));
 		o.value('wake', _('Wake up'));
 		o.value('shutdown', _('Shutdown'));
 		o.default = 'wake';
 
-		o = s.taboption('send', widgets.DeviceSelect, 'iface', _('Network interface to use'));
+		o = s.option(widgets.DeviceSelect, 'iface', _('Network interface to use'));
 		o.default = uci.get('luci-wolp', 'defaults', 'interface') || 'br-lan';
 		o.rmempty = false;
 		o.noaliases = true;
 		o.noinactive = true;
 
-		o = s.taboption('send', form.Flag, 'broadcast', _('Send to broadcast address'));
+		o = s.option(form.Flag, 'broadcast', _('Send to broadcast address'));
 
-		o = s.taboption('send', form.Value, 'extra_data', _('Shutdown discriminator'));
+		o = s.option(form.Value, 'extra_data', _('Shutdown control key'));
 		o.default = uci.get('luci-wolp', 'defaults', 'extra_data') || 'FF:FF:FF:FF:FF:FF';
 		o.placeholder = 'FF:FF:FF:FF:FF:FF';
 		o.datatype = 'macaddr';
 		o.rmempty = false;
 		o.depends('action', 'shutdown');
+		o.validate = function(sectionId, value) {
+			return self.normalizeControlKey(value) ? true : _('Shutdown control key must contain exactly 6 hexadecimal bytes');
+		};
 
-		return m.render();
+		return m.render().then(function(node) {
+			self.bindControlKeyInput(node);
+			return node;
+		});
 	},
 
 	handleAction: function() {
@@ -181,9 +229,9 @@ return view.extend({
 				});
 			}
 
-			var extraData = self.normalizeMac(data.wol.extra_data);
+			var extraData = self.normalizeControlKey(data.wol.extra_data);
 			if (!extraData)
-				throw new Error(_('Shutdown discriminator must be a 6-byte hexadecimal value'));
+				throw new Error(_('Shutdown control key must contain exactly 6 hexadecimal bytes'));
 
 			uci.set('luci-wolp', 'defaults', 'extra_data', extraData);
 			ui.showModal(_('Shutting down host'), [ E('p', { 'class': 'spinning' }, [ _('Sending Ethernet shutdown frame…') ]) ]);

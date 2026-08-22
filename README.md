@@ -37,7 +37,7 @@ The key settings are:
 
 - `mac_address`: target NIC MAC address.
 - `interface`: libpcap capture-device name.
-- `extra_data`: six-byte shutdown discriminator.
+- `extra_data`: six-byte shutdown control key, displayed and stored as `XX:XX:XX:XX:XX:XX`.
 - `shutdown_delay`: delay before the local shutdown command runs.
 
 The default Linux configuration is `/usr/local/etc/wolp/wolp.json`. Existing configuration files are automatically rewritten to remove retired transport settings on next startup.

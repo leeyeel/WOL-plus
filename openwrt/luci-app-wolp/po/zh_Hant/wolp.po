@@ -27,8 +27,8 @@ msgstr "傳送到廣播位址"
 msgid "Target MAC address"
 msgstr "目標 MAC 位址"
 
-msgid "Shutdown discriminator"
-msgstr "關機附加資料"
+msgid "Shutdown control key"
+msgstr "關機控制密鑰"
 
 msgid "etherwake is not installed"
 msgstr "未安裝 etherwake"
@@ -48,8 +48,8 @@ msgstr "喚醒訊框已傳送"
 msgid "Dismiss"
 msgstr "關閉"
 
-msgid "Shutdown discriminator must be a 6-byte hexadecimal value"
-msgstr "關機附加資料必須為 6 位元組十六進位值"
+msgid "Shutdown control key must contain exactly 6 hexadecimal bytes"
+msgstr "關機控制密鑰必須恰好包含 6 位元組十六進位數"
 
 msgid "Shutting down host"
 msgstr "正在關閉主機"
@@ -65,15 +65,6 @@ msgstr "操作失敗"
 
 msgid "Execute"
 msgstr "執行"
-
-msgid "Target device"
-msgstr "目標裝置"
-
-msgid "Choose a device already known to this router before sending a wake or shutdown frame."
-msgstr "傳送喚醒或關機訊框前，請先選擇此路由器已知的裝置。"
-
-msgid "Send frame"
-msgstr "傳送訊框"
 
 msgid "Target source"
 msgstr "目標來源"

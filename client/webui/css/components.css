@@ -71,6 +71,11 @@
     justify-content: space-between !important;
 }
 
+.field-label > span:first-child {
+    display: flex;
+    align-items: center;
+}
+
 .byte-count {
     font-size: 11px;
     color: var(--color-text-muted);

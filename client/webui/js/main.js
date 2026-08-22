@@ -41,6 +41,8 @@ const App = {
      * 绑定事件
      */
     bindEvents() {
+		ExtraInput.init();
+
         // 登录表单 - 回车键登录
         document.getElementById('password').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {

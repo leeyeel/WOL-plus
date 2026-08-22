@@ -10,7 +10,6 @@ const Config = {
     readFromDOM() {
         return {
             mac_address: document.getElementById('mac').value.trim(),
-            extra_data: document.getElementById('extra').value.trim(),
             shutdown_delay: document.getElementById('shutdownTime').value.trim()
         };
     },
@@ -22,7 +21,10 @@ const Config = {
     readSettingsFromDOM() {
         const username = document.getElementById('usernameInput').value.trim();
         const newPassword = document.getElementById('newPassword').value;
-        const payload = { username };
+        const payload = {
+            username,
+            extra_data: ExtraInput.getValue()
+        };
 
         if (newPassword) {
             payload.password = newPassword;
@@ -37,7 +39,7 @@ const Config = {
      */
     populateDOM(data) {
         document.getElementById('mac').value = data.mac_address || '';
-        document.getElementById('extra').value = data.extra_data || 'FF:FF:FF:FF:FF:FF';
+        ExtraInput.setValue(data.extra_data || 'FF:FF:FF:FF:FF:FF');
         document.getElementById('shutdownTime').value = data.shutdown_delay || '60';
         document.getElementById('usernameInput').value = data.username || 'admin';
         document.getElementById('networkInterface').value = data.interface || '';
@@ -78,6 +80,11 @@ const Config = {
         const payload = this.readSettingsFromDOM();
         const authHeader = Session.getAuthHeader();
         const passwordChanged = Boolean(payload.password);
+        const controlKey = ExtraInput.validate();
+
+        if (!controlKey.valid) {
+            return { success: false, message: '关机控制密钥必须为 6 字节十六进制数' };
+        }
 
         try {
             const response = await API.saveConfig(payload, authHeader);

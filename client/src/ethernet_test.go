@@ -38,6 +38,9 @@ func TestNormalizeExtraData(t *testing.T) {
 	if value, err := normalizeExtraData(""); err != nil || value != "FF:FF:FF:FF:FF:FF" {
 		t.Fatalf("unexpected default extra data: %q, %v", value, err)
 	}
+	if value, err := normalizeExtraData("1234aabbccdd"); err != nil || value != "12:34:AA:BB:CC:DD" {
+		t.Fatalf("unexpected compact extra data normalization: %q, %v", value, err)
+	}
 	if _, err := normalizeExtraData("11:22:33:44:55"); err == nil {
 		t.Fatal("accepted an invalid shutdown discriminator")
 	}

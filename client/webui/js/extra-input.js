@@ -1,6 +1,5 @@
 /**
- * 附加数据输入框模块
- * 处理 WOL 协议的附加数据输入验证和格式化
+ * 关机控制密钥输入框模块
  */
 
 const ExtraInput = {
@@ -8,8 +7,7 @@ const ExtraInput = {
     config: {
         bytes: 6,              // 6 字节
         separator: ':',        // 分隔符
-        pattern: /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/,  // XX:XX:XX:XX:XX:XX
-        hexPattern: /^[0-9A-Fa-f:]*$/
+        pattern: /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/  // XX:XX:XX:XX:XX:XX
     },
 
     elements: {
@@ -24,11 +22,11 @@ const ExtraInput = {
      */
     init() {
         this.elements.input = document.getElementById('extra');
-        this.elements.wrapper = this.elements.input?.parentElement;
+        this.elements.wrapper = this.elements.input?.closest('.input-wrapper');
         this.elements.byteCount = document.getElementById('extraByteCount');
         this.elements.statusIcon = document.getElementById('extraStatusIcon');
 
-        if (!this.elements.input) return;
+        if (!this.elements.input || !this.elements.wrapper || !this.elements.byteCount) return;
 
         this.bindEvents();
     },
@@ -49,31 +47,13 @@ const ExtraInput = {
             this.validate();
         });
 
-        // 获得焦点时选中内容
-        input.addEventListener('focus', () => {
-            input.select();
-        });
     },
 
     /**
      * 处理输入
      */
     handleInput(e) {
-        let value = e.target.value.toUpperCase();
-
-        // 只允许十六进制字符和冒号
-        if (!this.config.hexPattern.test(value)) {
-            value = value.replace(/[^0-9A-F:]/g, '');
-        }
-
-        // 自动格式化：每两个字符后添加冒号
-        value = this.formatValue(value);
-
-        // 限制最大长度
-        const maxLength = this.config.bytes * 3 - 1; // 6*3-1 = 17 (XX:XX:XX:XX:XX:XX)
-        if (value.length > maxLength) {
-            value = value.substring(0, maxLength);
-        }
+        const value = this.formatValue(e.target.value);
 
         e.target.value = value;
         this.updateByteCount();
@@ -84,8 +64,10 @@ const ExtraInput = {
      * 格式化值（自动添加冒号）
      */
     formatValue(value) {
-        // 移除所有冒号
-        const clean = value.replace(/:/g, '');
+        const clean = String(value || '')
+            .replace(/[^0-9A-Fa-f]/g, '')
+            .slice(0, this.config.bytes * 2)
+            .toUpperCase();
 
         // 添加冒号
         const parts = [];
@@ -108,9 +90,10 @@ const ExtraInput = {
         this.elements.wrapper.classList.remove('valid', 'invalid');
 
         if (isEmpty) {
-            this.setStatusIcon('info');
+            this.elements.wrapper.classList.add('invalid');
+            this.setStatusIcon('error');
             this.elements.byteCount.classList.remove('valid');
-            return { valid: true, empty: true };
+            return { valid: false, empty: true };
         }
 
         if (isValid) {
@@ -157,7 +140,7 @@ const ExtraInput = {
      * 获取值（供外部调用）
      */
     getValue() {
-        return this.elements.input.value;
+        return this.formatValue(this.elements.input.value);
     },
 
     /**
