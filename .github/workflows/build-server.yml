@@ -1,4 +1,4 @@
-name: Build Client Packages
+name: Build Release Packages
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -15,23 +15,77 @@ on:
   pull_request:
     branches:
       - main
+  release:
+    types:
+      - published
   workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref or tag to build (defaults to the selected revision)
+        required: false
+        type: string
+
+concurrency:
+  group: release-packages-${{ github.event.release.tag_name || github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   prepare:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.get_version.outputs.version }}
+      ref: ${{ steps.get_version.outputs.ref }}
+      tag: ${{ steps.get_version.outputs.tag }}
+      is_release: ${{ steps.get_version.outputs.is_release }}
     steps:
-      - name: Get version
+      - name: Determine source and package version
         id: get_version
+        env:
+          DISPATCH_REF: ${{ inputs.ref }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            VERSION="${GITHUB_REF#refs/tags/v}"
+          tag=""
+          ref="$GITHUB_SHA"
+
+          case "$GITHUB_EVENT_NAME" in
+            release)
+              tag="$RELEASE_TAG"
+              ref="$tag"
+              ;;
+            push)
+              ref="$GITHUB_REF"
+              if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+                tag="${GITHUB_REF#refs/tags/}"
+              fi
+              ;;
+            workflow_dispatch)
+              if [[ -n "$DISPATCH_REF" ]]; then
+                ref="$DISPATCH_REF"
+                if [[ "$ref" == refs/tags/* ]]; then
+                  tag="${ref#refs/tags/}"
+                elif [[ "$ref" == v* ]]; then
+                  tag="$ref"
+                fi
+              fi
+              ;;
+          esac
+
+          if [[ -n "$tag" ]]; then
+            if [[ ! "$tag" =~ ^v[0-9] ]]; then
+              echo "Release tags must begin with v followed by a digit (received: $tag)" >&2
+              exit 1
+            fi
+            VERSION="${tag#v}"
+            is_release=true
           else
             VERSION="0.0.0-dev.${GITHUB_RUN_NUMBER}"
+            is_release=false
           fi
+
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "is_release=$is_release" >> "$GITHUB_OUTPUT"
 
   build-windows-installer:
     needs: prepare
@@ -49,7 +103,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
-          fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.ref }}
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -80,17 +134,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
-          name: windows-installer-amd64-${{ matrix.variant }}
+          name: release-windows-installer-amd64-${{ matrix.variant }}
           path: scripts/Output/*_${{ matrix.variant }}_v*.exe
-
-      - name: Release (on tag)
-        if: github.ref_type == 'tag'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: scripts/Output/*_${{ matrix.variant }}_v*.exe
-          fail_on_unmatched_files: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-debian-package:
     needs: prepare
@@ -104,6 +149,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.ref }}
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -133,17 +180,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
-          name: deb-package-${{ matrix.arch }}-${{ matrix.variant }}
+          name: release-deb-${{ matrix.arch }}-${{ matrix.variant }}
           path: release/client/*.deb
-
-      - name: Release (on tag)
-        if: github.ref_type == 'tag'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: release/client/*.deb
-          fail_on_unmatched_files: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-rpm-package:
     needs: prepare
@@ -157,6 +195,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.ref }}
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -186,14 +226,66 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
-          name: rpm-package-${{ matrix.arch }}-${{ matrix.variant }}
+          name: release-rpm-${{ matrix.arch }}-${{ matrix.variant }}
           path: release/client/*.rpm
 
-      - name: Release (on tag)
-        if: github.ref_type == 'tag'
+  build-openwrt-package:
+    needs: prepare
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.ref }}
+
+      - name: Install IPK build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libarchive-tools
+
+      - name: Build OpenWrt IPK packages
+        run: |
+          chmod +x openwrt/build-ipk.sh
+          VERSION="${{ needs.prepare.outputs.version }}" openwrt/build-ipk.sh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: release-openwrt-ipk
+          path: release/*.ipk
+          if-no-files-found: error
+          retention-days: 30
+
+  publish-release:
+    if: needs.prepare.outputs.is_release == 'true'
+    needs:
+      - prepare
+      - build-windows-installer
+      - build-debian-package
+      - build-rpm-package
+      - build-openwrt-package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download release assets
+        uses: actions/download-artifact@v6
+        with:
+          pattern: 'release-*'
+          path: release-assets
+          merge-multiple: true
+
+      - name: Verify release assets
+        run: |
+          find release-assets -maxdepth 1 -type f -print | sort
+          test "$(find release-assets -maxdepth 1 -type f | wc -l)" -gt 0
+
+      - name: Create or update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: release/client/*.rpm
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          files: release-assets/*
+          overwrite_files: true
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

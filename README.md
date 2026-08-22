@@ -82,6 +82,16 @@ The skill keeps device records outside its installation directory, under `WOLP_D
 
 Build Linux packages with `scripts/build-deb.sh` or `scripts/build-rpm.sh`. Building the Client requires libpcap development headers; cross-building arm64 requires an `aarch64-linux-gnu` C compiler and arm64 libpcap development headers.
 
+## Release Automation
+
+GitHub Actions builds all distributable packages in one release workflow:
+
+- Windows x64 installers: Web UI and backend-only variants.
+- Debian/Ubuntu and RPM Linux packages: x64 and ARM64, each with Web UI and backend-only variants.
+- OpenWrt IPKs: `x86_64` and `aarch64_generic`, including the Simplified Chinese translation package.
+
+Push a tag such as `v1.2.3` to build every package and create or update its GitHub Release. Publishing a GitHub Release for an existing `v*` tag runs the same build again and replaces the matching release assets. Pushes to `main` and pull requests build the packages as workflow artifacts only. The workflow can also be run manually; supply a `v*` tag in the `ref` input when release assets are wanted.
+
 ## License
 
 [MIT License](LICENSE)
