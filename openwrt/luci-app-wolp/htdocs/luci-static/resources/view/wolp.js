@@ -186,6 +186,7 @@ return view.extend({
 		o.noinactive = true;
 
 		o = s.option(form.Flag, 'broadcast', _('Send to broadcast address'));
+		o.default = '1';
 
 		o = s.option(form.Value, 'extra_data', _('Shutdown control key'));
 		o.default = uci.get('luci-wolp', 'defaults', 'extra_data') || 'FF:FF:FF:FF:FF:FF';
