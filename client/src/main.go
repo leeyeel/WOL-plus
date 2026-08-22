@@ -471,14 +471,17 @@ func handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 // shutdown 用于优雅关闭服务和抓包 goroutine
 func terminate() {
 	if server != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := server.Shutdown(ctx); err != nil {
-			log.Printf("HTTP server shutdown error: %v", err)
+		if err := server.Close(); err != nil && err != http.ErrServerClosed {
+			log.Printf("HTTP server close error: %v", err)
 		}
 	}
 
-	stopListeners()
+	listenerMutex.Lock()
+	if listenerCancel != nil {
+		listenerCancel()
+		listenerCancel = nil
+	}
+	listenerMutex.Unlock()
 }
 
 func startHTTPServer() {
@@ -554,6 +557,8 @@ func main() {
 		s := <-signalChan
 		log.Printf("received message: %v, start terminating...", s)
 		terminate()
+		// Do not wait on a pcap read while systemd is stopping the service.
+		os.Exit(0)
 	}()
 
 	// 5. Block until the HTTP server and Ethernet capture goroutine stop.

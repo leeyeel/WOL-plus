@@ -17,7 +17,9 @@ install:
 
 	# 安装配置文件
 	install -d $(CONFIGDIR)
-	install -m 600 client/wolp.json $(CONFIGDIR)/wolp.json
+	if [ ! -e $(CONFIGDIR)/wolp.json ]; then \
+		install -m 600 client/wolp.json $(CONFIGDIR)/wolp.json; \
+	fi
 
 	# 按需安装 webui
 	if [ "$(INSTALL_WEBUI)" != "0" ]; then \
@@ -40,7 +42,7 @@ install:
 	# 重新加载 systemd 并启用 wolp
 	systemctl daemon-reload
 	systemctl enable wolp
-	systemctl start wolp
+	systemctl restart wolp
 
 uninstall:
 	# 停止并禁用服务

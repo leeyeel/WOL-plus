@@ -39,11 +39,11 @@ function validInterface(value) {
 }
 
 function wantsBroadcast(value) {
-	return value == true || value == '1' || value == 'true';
+	return !!value;
 }
 
-function runEtherwake(args, extraData) {
-	const parts = [shellquote(etherwake), shellquote('-D')];
+function runEtherwake(args, extraData, forceBroadcast) {
+	let command;
 
 	if (!access(etherwake, 'x'))
 		return { stdout: '', stderr: 'etherwake is not installed', code: 1 };
@@ -52,17 +52,16 @@ function runEtherwake(args, extraData) {
 	if (extraData && !validMac(extraData))
 		return { stdout: '', stderr: 'invalid shutdown discriminator', code: 1 };
 
-	parts.push(shellquote('-i'));
-	parts.push(shellquote(args.interface));
-	if (wantsBroadcast(args.broadcast))
-		parts.push(shellquote('-b'));
+	// All variable fields have been validated as shell-safe tokens above.
+	command = etherwake + ' -D -i ' + args.interface;
+	if (forceBroadcast || wantsBroadcast(args.broadcast))
+		command += ' -b';
 	if (extraData) {
-		parts.push(shellquote('-p'));
-		parts.push(shellquote(extraData));
+		command += ' -p ' + extraData;
 	}
-	parts.push(shellquote(args.mac));
+	command += ' ' + args.mac;
 
-	return resultFromCommand(join(' ', parts));
+	return resultFromCommand(command);
 }
 
 function addDevice(devices, mac, name, ip, source) {
@@ -158,7 +157,7 @@ const methods = {
 	wake: {
 		args: { mac: 'string', interface: 'string', broadcast: true },
 		call: function(request) {
-			return runEtherwake(requestArgs(request), null);
+			return runEtherwake(requestArgs(request), null, false);
 		}
 	},
 
@@ -166,7 +165,9 @@ const methods = {
 		args: { mac: 'string', interface: 'string', broadcast: true, extra_data: 'string' },
 		call: function(request) {
 			const args = requestArgs(request);
-			return runEtherwake(args, args.extra_data);
+			// A running Client must see shutdown frames even when a stale
+			// LuCI form or direct RPC call omits the broadcast flag.
+			return runEtherwake(args, args.extra_data, true);
 		}
 	}
 };
