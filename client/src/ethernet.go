@@ -8,8 +8,8 @@ import (
 	"log"
 	"net"
 	"strings"
+	"time"
 
-	"github.com/google/gopacket"
 	"github.com/google/gopacket/pcap"
 )
 
@@ -18,6 +18,7 @@ const (
 	wolEthertype         = 0x0842
 	wolPayloadLength     = 102
 	shutdownPayloadSize  = wolPayloadLength + 6
+	captureReadTimeout   = 500 * time.Millisecond
 )
 
 var wolSyncBytes = bytes.Repeat([]byte{0xff}, 6)
@@ -27,7 +28,8 @@ var wolSyncBytes = bytes.Repeat([]byte{0xff}, 6)
 func startPacketCapture(ctx context.Context, cfg listenerConfig) {
 	defer listenerWg.Done()
 
-	handle, err := pcap.OpenLive(cfg.Interface, 1600, true, pcap.BlockForever)
+	// A finite timeout makes cancellation observable even when the network is idle.
+	handle, err := pcap.OpenLive(cfg.Interface, 1600, true, captureReadTimeout)
 	if err != nil {
 		log.Printf("Failed to open capture device %s: %v", cfg.Interface, err)
 		return
@@ -39,21 +41,29 @@ func startPacketCapture(ctx context.Context, cfg listenerConfig) {
 		return
 	}
 
-	packets := gopacket.NewPacketSource(handle, handle.LinkType()).Packets()
 	for {
 		select {
 		case <-ctx.Done():
 			log.Println("Stop Ethernet capture goroutine")
 			return
-		case packet, ok := <-packets:
-			if !ok {
-				log.Println("Ethernet capture channel closed")
+		default:
+		}
+
+		frame, _, err := handle.ReadPacketData()
+		if err == pcap.NextErrorTimeoutExpired {
+			continue
+		}
+		if err != nil {
+			if ctx.Err() != nil {
+				log.Println("Stop Ethernet capture goroutine")
 				return
 			}
-			if isShutdownFrame(packet.Data(), cfg) {
-				log.Println("Received matching WOL Ethernet frame, initiating shutdown")
-				initiateShutdown()
-			}
+			log.Printf("Ethernet capture failed on %s: %v", cfg.Interface, err)
+			return
+		}
+		if isShutdownFrame(frame, cfg) {
+			log.Println("Received matching WOL Ethernet frame, initiating shutdown")
+			initiateShutdown()
 		}
 	}
 }

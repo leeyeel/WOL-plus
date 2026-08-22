@@ -152,7 +152,7 @@
 
             <section class="network-section">
                 <div class="form-group">
-                    <label class="field-label" for="extra">
+                    <label id="extraLabel" class="field-label">
                         <span>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <circle cx="12" cy="12" r="10"></circle>
@@ -163,11 +163,13 @@
                         </span>
                         <span id="extraByteCount" class="byte-count" aria-live="polite">0/6</span>
                     </label>
-                    <div class="input-wrapper">
-                        <input type="text" id="extra" class="hex-input" placeholder="FF:FF:FF:FF:FF:FF" maxlength="17" spellcheck="false" autocomplete="off" autocapitalize="characters" aria-label="关机控制密钥">
-                        <span class="input-status" aria-hidden="true">
-                            <svg id="extraStatusIcon" class="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"></svg>
-                        </span>
+                    <div id="extra" class="hex-byte-inputs" role="group" aria-labelledby="extraLabel">
+                        <input class="hex-byte-input" type="text" maxlength="2" spellcheck="false" autocomplete="off" autocapitalize="characters" inputmode="text" aria-label="关机控制密钥第 1 字节">
+                        <input class="hex-byte-input" type="text" maxlength="2" spellcheck="false" autocomplete="off" autocapitalize="characters" inputmode="text" aria-label="关机控制密钥第 2 字节">
+                        <input class="hex-byte-input" type="text" maxlength="2" spellcheck="false" autocomplete="off" autocapitalize="characters" inputmode="text" aria-label="关机控制密钥第 3 字节">
+                        <input class="hex-byte-input" type="text" maxlength="2" spellcheck="false" autocomplete="off" autocapitalize="characters" inputmode="text" aria-label="关机控制密钥第 4 字节">
+                        <input class="hex-byte-input" type="text" maxlength="2" spellcheck="false" autocomplete="off" autocapitalize="characters" inputmode="text" aria-label="关机控制密钥第 5 字节">
+                        <input class="hex-byte-input" type="text" maxlength="2" spellcheck="false" autocomplete="off" autocapitalize="characters" inputmode="text" aria-label="关机控制密钥第 6 字节">
                     </div>
                 </div>
 

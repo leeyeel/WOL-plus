@@ -3,6 +3,18 @@
  */
 
 const Config = {
+    supportsExtraData: null,
+
+    async getErrorMessage(response, fallback) {
+        const message = (await response.text()).trim();
+
+        if (response.status === 400 && message === 'Failed to parse config') {
+            return '当前客户端服务版本不支持关机控制密钥，请同时升级 wolp 服务端和 Web 页面。';
+        }
+
+        return message || `${fallback}（HTTP ${response.status}）`;
+    },
+
     /**
      * 从 DOM 读取配置数据
      * @returns {Object} 配置对象
@@ -38,6 +50,7 @@ const Config = {
      * @param {Object} data - 配置数据
      */
     populateDOM(data) {
+        this.supportsExtraData = Object.prototype.hasOwnProperty.call(data, 'extra_data');
         document.getElementById('mac').value = data.mac_address || '';
         ExtraInput.setValue(data.extra_data || 'FF:FF:FF:FF:FF:FF');
         document.getElementById('shutdownTime').value = data.shutdown_delay || '60';
@@ -66,7 +79,7 @@ const Config = {
                 return { success: false, message: '认证已过期' };
             }
 
-            return { success: false, message: '更新配置失败！' };
+            return { success: false, message: await this.getErrorMessage(response, '更新配置失败！') };
         } catch (error) {
             return { success: false, message: '网络错误，保存失败！' };
         }
@@ -77,6 +90,10 @@ const Config = {
      * @returns {Promise<{success: boolean, message: string, needRelogin?: boolean}>}
      */
     async saveSettings() {
+        if (this.supportsExtraData === false) {
+            return { success: false, message: '当前客户端服务版本不支持关机控制密钥，请同时升级 wolp 服务端和 Web 页面。' };
+        }
+
         const payload = this.readSettingsFromDOM();
         const authHeader = Session.getAuthHeader();
         const passwordChanged = Boolean(payload.password);
@@ -106,7 +123,7 @@ const Config = {
                 return { success: false, message: '认证已过期' };
             }
 
-            return { success: false, message: '保存失败！' };
+            return { success: false, message: await this.getErrorMessage(response, '保存失败！') };
         } catch (error) {
             return { success: false, message: '网络错误，保存失败！' };
         }

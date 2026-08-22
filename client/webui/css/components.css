@@ -68,6 +68,8 @@
 
 /* ========== 字段标签增强 ========== */
 .field-label {
+    display: flex;
+    align-items: center;
     justify-content: space-between !important;
 }
 
@@ -90,70 +92,34 @@
     background: rgba(40, 167, 69, 0.1);
 }
 
-/* ========== 输入框包装器 ========== */
-.input-wrapper {
-    position: relative;
+/* ========== 六字节控制密钥 ========== */
+.hex-byte-inputs {
+    width: 100%;
     display: flex;
-    align-items: center;
+    flex-wrap: nowrap;
+    gap: 4px;
 }
 
-.input-wrapper input {
-    flex: 1;
-    padding-right: 40px;
-}
-
-.input-status {
-    position: absolute;
-    right: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    transition: all 0.3s ease;
-}
-
-.status-icon {
-    width: 16px;
-    height: 16px;
-    opacity: 0.4;
-}
-
-/* 验证状态 */
-.input-wrapper.valid .input-status {
-    background: rgba(40, 167, 69, 0.1);
-}
-
-.input-wrapper.valid .status-icon {
-    stroke: var(--color-success);
-    opacity: 1;
-}
-
-.input-wrapper.invalid .input-status {
-    background: rgba(220, 53, 69, 0.1);
-}
-
-.input-wrapper.invalid .status-icon {
-    stroke: var(--color-danger);
-    opacity: 1;
-}
-
-.input-wrapper.invalid input {
-    border-color: var(--color-danger);
-}
-
-/* ========== 十六进制输入框 ========== */
-.hex-input {
+.hex-byte-inputs input {
+    flex: 1 1 0;
+    width: 0;
+    max-width: none;
+    min-width: 0;
+    height: 44px;
+    padding: 0;
+    text-align: center;
     font-family: 'SF Mono', 'Monaco', 'Consolas', 'Courier New', monospace;
-    letter-spacing: 1px;
+    font-size: 14px;
+    letter-spacing: 0;
     text-transform: uppercase;
 }
 
-.hex-input::placeholder {
-    text-transform: none;
-    letter-spacing: normal;
-    font-family: inherit;
+.hex-byte-inputs.valid input {
+    border-color: var(--color-success);
+}
+
+.hex-byte-inputs.invalid input {
+    border-color: var(--color-danger);
 }
 
 /* ========== 字段提示 ========== */

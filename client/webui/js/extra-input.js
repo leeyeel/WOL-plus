@@ -3,73 +3,89 @@
  */
 
 const ExtraInput = {
-    // 配置
     config: {
-        bytes: 6,              // 6 字节
-        separator: ':',        // 分隔符
-        pattern: /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/  // XX:XX:XX:XX:XX:XX
+        bytes: 6,
+        bytePattern: /^[0-9A-F]{2}$/
     },
 
     elements: {
-        input: null,
+        inputs: [],
         wrapper: null,
-        byteCount: null,
-        statusIcon: null
+        byteCount: null
     },
 
-    /**
-     * 初始化
-     */
     init() {
-        this.elements.input = document.getElementById('extra');
-        this.elements.wrapper = this.elements.input?.closest('.input-wrapper');
+        this.elements.wrapper = document.getElementById('extra');
+        this.elements.inputs = Array.from(document.querySelectorAll('.hex-byte-input'));
         this.elements.byteCount = document.getElementById('extraByteCount');
-        this.elements.statusIcon = document.getElementById('extraStatusIcon');
 
-        if (!this.elements.input || !this.elements.wrapper || !this.elements.byteCount) return;
+        if (!this.elements.wrapper || this.elements.inputs.length !== this.config.bytes || !this.elements.byteCount) return;
 
         this.bindEvents();
     },
 
-    /**
-     * 绑定事件
-     */
     bindEvents() {
-        const input = this.elements.input;
-
-        // 输入时格式化和验证
-        input.addEventListener('input', (e) => {
-            this.handleInput(e);
+        this.elements.inputs.forEach((input, index) => {
+            input.addEventListener('input', (event) => {
+                this.handleInput(event, index);
+            });
+            input.addEventListener('keydown', (event) => {
+                this.handleKeydown(event, index);
+            });
+            input.addEventListener('paste', (event) => {
+                this.handlePaste(event);
+            });
+            input.addEventListener('blur', () => {
+                setTimeout(() => {
+                    if (!this.elements.wrapper.contains(document.activeElement)) {
+                        this.validate();
+                    }
+                }, 0);
+            });
         });
-
-        // 失去焦点时验证
-        input.addEventListener('blur', () => {
-            this.validate();
-        });
-
     },
 
-    /**
-     * 处理输入
-     */
-    handleInput(e) {
-        const value = this.formatValue(e.target.value);
-
-        e.target.value = value;
-        this.updateByteCount();
-        this.validate();
-    },
-
-    /**
-     * 格式化值（自动添加冒号）
-     */
-    formatValue(value) {
-        const clean = String(value || '')
+    cleanValue(value) {
+        return String(value || '')
             .replace(/[^0-9A-Fa-f]/g, '')
             .slice(0, this.config.bytes * 2)
             .toUpperCase();
+    },
 
-        // 添加冒号
+    handleInput(event, index) {
+        const input = event.target;
+        input.value = this.cleanValue(input.value).slice(0, 2);
+
+        this.updateByteCount();
+        this.validate(false);
+
+        if (input.value.length === 2 && index < this.config.bytes - 1) {
+            this.elements.inputs[index + 1].focus();
+            this.elements.inputs[index + 1].select();
+        }
+    },
+
+    handleKeydown(event, index) {
+        if (event.key !== 'Backspace' || event.target.value || index === 0) return;
+
+        event.preventDefault();
+        this.elements.inputs[index - 1].value = '';
+        this.elements.inputs[index - 1].focus();
+        this.updateByteCount();
+        this.validate(false);
+    },
+
+    handlePaste(event) {
+        event.preventDefault();
+        this.setValue(event.clipboardData?.getData('text') || '');
+
+        const next = this.elements.inputs.findIndex((input) => input.value.length < 2);
+        this.elements.inputs[next === -1 ? this.config.bytes - 1 : next].focus();
+    },
+
+    formatValue(value) {
+        const clean = this.cleanValue(value);
+
         const parts = [];
         for (let i = 0; i < clean.length; i += 2) {
             parts.push(clean.substring(i, i + 2));
@@ -78,91 +94,51 @@ const ExtraInput = {
         return parts.join(':');
     },
 
-    /**
-     * 验证输入
-     */
-    validate() {
-        const value = this.elements.input.value;
-        const isValid = this.config.pattern.test(value);
-        const isEmpty = value === '';
+    validate(showErrors = true) {
+        const isEmpty = this.elements.inputs.every((input) => input.value === '');
+        const isValid = this.elements.inputs.every((input) => this.config.bytePattern.test(input.value));
 
-        // 移除所有状态类
         this.elements.wrapper.classList.remove('valid', 'invalid');
-
-        if (isEmpty) {
-            this.elements.wrapper.classList.add('invalid');
-            this.setStatusIcon('error');
-            this.elements.byteCount.classList.remove('valid');
-            return { valid: false, empty: true };
-        }
 
         if (isValid) {
             this.elements.wrapper.classList.add('valid');
-            this.setStatusIcon('check');
             this.elements.byteCount.classList.add('valid');
             return { valid: true, empty: false };
-        } else {
-            this.elements.wrapper.classList.add('invalid');
-            this.setStatusIcon('error');
-            this.elements.byteCount.classList.remove('valid');
-            return { valid: false, empty: false };
         }
+
+        this.elements.byteCount.classList.remove('valid');
+        if (showErrors) {
+            this.elements.wrapper.classList.add('invalid');
+        }
+
+        return { valid: false, empty: isEmpty };
     },
 
-    /**
-     * 设置状态图标
-     */
-    setStatusIcon(type) {
-        const icon = this.elements.statusIcon;
-        if (!icon) return;
-
-        const icons = {
-            info: '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line>',
-            check: '<polyline points="20 6 9 17 4 12"></polyline>',
-            error: '<circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line>'
-        };
-
-        icon.innerHTML = icons[type] || icons.info;
-    },
-
-    /**
-     * 更新字节计数
-     */
     updateByteCount() {
-        const value = this.elements.input.value;
-        const clean = value.replace(/:/g, '');
-        const bytes = Math.ceil(clean.length / 2);
+        const bytes = this.elements.inputs.filter((input) => input.value.length === 2).length;
 
         this.elements.byteCount.textContent = `${bytes}/${this.config.bytes}`;
     },
 
-    /**
-     * 获取值（供外部调用）
-     */
     getValue() {
-        return this.formatValue(this.elements.input.value);
+        return this.formatValue(this.elements.inputs.map((input) => input.value).join(''));
     },
 
-    /**
-     * 设置值（供外部调用）
-     */
     setValue(value) {
-        this.elements.input.value = this.formatValue(value.toUpperCase());
+        const clean = this.cleanValue(value);
+
+        this.elements.inputs.forEach((input, index) => {
+            input.value = clean.slice(index * 2, index * 2 + 2);
+        });
         this.updateByteCount();
         this.validate();
     },
 
-    /**
-     * 清空值
-     */
     clear() {
-        this.elements.input.value = '';
+        this.elements.inputs.forEach((input) => {
+            input.value = '';
+        });
         this.updateByteCount();
         this.validate();
     }
 };
-
-// 全局函数（用于 HTML onclick 绑定）
-function setExampleExtra() {
-    ExtraInput.setValue('12:34:56:78:9A:BC');
-}
