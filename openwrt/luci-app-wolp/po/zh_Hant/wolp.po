@@ -65,3 +65,48 @@ msgstr "操作失敗"
 
 msgid "Execute"
 msgstr "執行"
+
+msgid "Target device"
+msgstr "目標裝置"
+
+msgid "Choose a device already known to this router before sending a wake or shutdown frame."
+msgstr "傳送喚醒或關機訊框前，請先選擇此路由器已知的裝置。"
+
+msgid "Send frame"
+msgstr "傳送訊框"
+
+msgid "Target source"
+msgstr "目標來源"
+
+msgid "Choose a device known to this router"
+msgstr "選擇此路由器已知的裝置"
+
+msgid "Enter a MAC address manually"
+msgstr "手動輸入 MAC 位址"
+
+msgid "Router device"
+msgstr "路由器裝置"
+
+msgid "No router devices were found"
+msgstr "找不到路由器已知裝置"
+
+msgid "Use this only when the target is not listed above."
+msgstr "僅在上方未列出目標裝置時使用此項。"
+
+msgid "Device list"
+msgstr "裝置清單"
+
+msgid "Refresh"
+msgstr "重新整理"
+
+msgid "Unnamed device"
+msgstr "未命名裝置"
+
+msgid "Online"
+msgstr "在線"
+
+msgid "Static DHCP"
+msgstr "靜態 DHCP"
+
+msgid "Known device"
+msgstr "已知裝置"

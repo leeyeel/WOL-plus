@@ -3,7 +3,7 @@
 		"description": "Grant access to wake-on-lan-plus executables",
 		"read": {
 			"ubus": {
-				"luci.wolp": [ "stat" ]
+				"luci.wolp": [ "stat", "devices" ]
 			},
 			"uci": [ "luci-wolp" ]
 		},

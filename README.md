@@ -58,7 +58,7 @@ Build local IPKs with:
 
 ```bash
 cd openwrt
-VERSION=0.4.0 ./build-ipk.sh
+VERSION=1.0.2 ./build-ipk.sh
 ```
 
 ## Agent Skill

@@ -3,6 +3,8 @@
 `luci.wolp` exposes fixed RPC methods only:
 
 - `stat`: reports whether `etherwake` is installed.
+- `devices`: returns a read-only, validated list of devices known from static DHCP
+  bindings, DHCP leases, and active `br-lan` neighbor entries.
 - `wake(mac, interface, broadcast)`: sends a standard raw Magic Packet.
 - `shutdown(mac, interface, broadcast, extra_data)`: sends the same frame with a validated six-byte discriminator using `etherwake -p`.
 

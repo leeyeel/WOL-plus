@@ -9,7 +9,8 @@ The router and Client must be on the same Layer-2 segment. A shutdown frame can 
 
 ## Dependencies
 
-The IPK declares `etherwake`, `rpcd-mod-ucode`, and `ucode-mod-fs`.
+The IPK declares `etherwake`, `rpcd-mod-ucode`, `ucode-mod-fs`, and
+`ucode-mod-uci`.
 
 ## Setup
 
@@ -22,7 +23,11 @@ The IPK declares `etherwake`, `rpcd-mod-ucode`, and `ucode-mod-fs`.
 
 ```bash
 cd openwrt
-VERSION=0.4.0 ./build-ipk.sh
+VERSION=1.0.2 ./build-ipk.sh
 ```
 
 The RPC service exposes only `stat`, `wake`, and `shutdown`; it does not expose generic command execution.
+
+The LuCI page loads its target selector from static DHCP bindings, active DHCP leases,
+and active `br-lan` neighbor entries. Manual MAC input remains available only as a
+fallback for devices which are not known to the router.

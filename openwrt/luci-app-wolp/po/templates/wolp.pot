@@ -62,3 +62,48 @@ msgstr ""
 
 msgid "Execute"
 msgstr ""
+
+msgid "Target device"
+msgstr ""
+
+msgid "Choose a device already known to this router before sending a wake or shutdown frame."
+msgstr ""
+
+msgid "Send frame"
+msgstr ""
+
+msgid "Target source"
+msgstr ""
+
+msgid "Choose a device known to this router"
+msgstr ""
+
+msgid "Enter a MAC address manually"
+msgstr ""
+
+msgid "Router device"
+msgstr ""
+
+msgid "No router devices were found"
+msgstr ""
+
+msgid "Use this only when the target is not listed above."
+msgstr ""
+
+msgid "Device list"
+msgstr ""
+
+msgid "Refresh"
+msgstr ""
+
+msgid "Unnamed device"
+msgstr ""
+
+msgid "Online"
+msgstr ""
+
+msgid "Static DHCP"
+msgstr ""
+
+msgid "Known device"
+msgstr ""

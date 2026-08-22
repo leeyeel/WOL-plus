@@ -2,9 +2,12 @@
 
 'use strict';
 
-import { access, popen } from 'fs';
+import { access, open, popen } from 'fs';
+import { cursor } from 'uci';
 
 const etherwake = '/usr/bin/etherwake';
+const dhcpLeaseFile = '/tmp/dhcp.leases';
+const lanNeighbors = '/sbin/ip -4 neigh show dev br-lan 2>/dev/null';
 
 function shellquote(value) {
 	return "'" + replace(value, "'", "'\\''") + "'";
@@ -25,6 +28,10 @@ function requestArgs(request) {
 
 function validMac(value) {
 	return value && match(value, /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/);
+}
+
+function normalizedMac(value) {
+	return validMac(value) ? uc(value) : null;
 }
 
 function validInterface(value) {
@@ -58,10 +65,93 @@ function runEtherwake(args, extraData) {
 	return resultFromCommand(join(' ', parts));
 }
 
+function addDevice(devices, mac, name, ip, source) {
+	mac = normalizedMac(mac);
+	if (!mac)
+		return;
+
+	let device = devices[mac] || { mac: mac };
+	devices[mac] = device;
+
+	if (name && name != '*' && (!device.name || source == 'static'))
+		device.name = name;
+	if (ip && (!device.ip || source != 'neighbor'))
+		device.ip = ip;
+	device[source] = true;
+}
+
+function addStaticDhcpBindings(devices) {
+	let config = cursor();
+
+	config.foreach('dhcp', 'host', (host) => {
+		for (let mac in host.mac || [])
+			addDevice(devices, mac, host.name, host.ip, 'static');
+	});
+}
+
+function addDhcpLeases(devices) {
+	let fd = open(dhcpLeaseFile, 'r');
+	if (!fd)
+		return;
+
+	let leases = fd.read('all') || '';
+	fd.close();
+
+	for (let line in split(leases, '\n')) {
+		let lease = match(line, /^([0-9]+) ([0-9A-Fa-f:]+) ([0-9.]+) ([^ ]+)/);
+		if (lease)
+			addDevice(devices, lease[2], lease[4], lease[3], 'lease');
+	}
+}
+
+function addLanNeighbors(devices) {
+	let fd = popen(lanNeighbors),
+		neighbors;
+
+	if (!fd)
+		return;
+
+	neighbors = fd.read('all') || '';
+	fd.close();
+
+	for (let line in split(neighbors, '\n')) {
+		let neighbor = match(line, /^([^ ]+) dev ([^ ]+) lladdr ([0-9A-Fa-f:]+)/);
+		if (neighbor)
+			addDevice(devices, neighbor[3], null, neighbor[1], 'neighbor');
+	}
+}
+
+function knownDevices() {
+	let devices = {},
+		list = [];
+
+	addStaticDhcpBindings(devices);
+	addDhcpLeases(devices);
+	addLanNeighbors(devices);
+
+	for (let mac, device in devices) {
+		push(list, {
+			mac: mac,
+			name: device.name,
+			ip: device.ip,
+			online: !!(device.lease || device.neighbor),
+			source: device.static ? 'static' : (device.lease ? 'lease' : 'neighbor')
+		});
+	}
+
+	return list;
+}
+
 const methods = {
 	stat: {
 		call: function() {
 			return { etherwake: !!access(etherwake, 'x') };
+		}
+	},
+
+	devices: {
+		call: function() {
+			return { devices: knownDevices() };
 		}
 	},
 

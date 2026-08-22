@@ -21,7 +21,7 @@ BUILD_DIR="$SCRIPT_DIR/ipk-build"
 OUTPUT_DIR="$PROJECT_ROOT/release"
 SOURCE_DIR="$SCRIPT_DIR/luci-app-wolp"
 
-VERSION="${VERSION:-1.0.1}"
+VERSION="${VERSION:-1.0.2}"
 PACKAGE_NAME="luci-app-wolp"
 I18N_PACKAGE_NAME="luci-i18n-wolp-zh-cn"
 # 支持的架构
@@ -74,7 +74,7 @@ build_ipk() {
     cat > "$PACKAGE_DIR/CONTROL/control" << EOF
 Package: luci-app-wolp
 Version: $VERSION
-Depends: libc, luci-base, etherwake, rpcd-mod-ucode, ucode-mod-fs
+Depends: libc, luci-base, etherwake, rpcd-mod-ucode, ucode-mod-fs, ucode-mod-uci
 Section: luci
 Architecture: $ARCH
 Maintainer: leeyeel <mumuli52@gmail.com>
@@ -378,7 +378,7 @@ echo ""
 echo "Install on OpenWrt:"
 echo "  1. Install dependencies:"
 echo "     opkg update"
-echo "     opkg install luci-base etherwake rpcd-mod-ucode ucode-mod-fs"
+echo "     opkg install luci-base etherwake rpcd-mod-ucode ucode-mod-fs ucode-mod-uci"
 echo ""
 echo "  2. Install main package:"
 echo "     opkg install /tmp/luci-app-wolp_*_<arch>.ipk"
@@ -398,7 +398,7 @@ echo ""
 echo "Install on OpenWrt:"
 echo "  1. 安装依赖:"
 echo "     opkg update"
-echo "     opkg install luci-base etherwake rpcd-mod-ucode ucode-mod-fs"
+echo "     opkg install luci-base etherwake rpcd-mod-ucode ucode-mod-fs ucode-mod-uci"
 echo ""
 echo "  2. 拷贝 IPK 到 OpenWrt:"
 echo "     scp release/${PACKAGE_NAME}_*_<arch>.ipk root@<openwrt-ip>:/tmp/"
