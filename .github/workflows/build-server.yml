@@ -110,12 +110,42 @@ jobs:
         with:
           go-version: '1.22'
 
-      - name: Install Npcap build dependencies
+      - name: Install Windows build dependencies
         shell: pwsh
         run: |
-          choco install npcap mingw --yes --no-progress
-          $env:Path += ';C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin'
-          echo "PATH=$env:Path" >> $env:GITHUB_ENV
+          choco install mingw --yes --no-progress
+
+          $mingwBin = Join-Path $env:ProgramData 'mingw64\mingw64\bin'
+          if (-not (Test-Path (Join-Path $mingwBin 'gcc.exe'))) {
+            throw "MinGW compiler was not installed at $mingwBin"
+          }
+
+          $npcapSdkVersion = '1.15'
+          $npcapSdkArchive = Join-Path $env:RUNNER_TEMP "npcap-sdk-$npcapSdkVersion.zip"
+          $npcapSdkPath = Join-Path $env:RUNNER_TEMP "npcap-sdk-$npcapSdkVersion"
+          Invoke-WebRequest -Uri "https://npcap.com/dist/npcap-sdk-$npcapSdkVersion.zip" -OutFile $npcapSdkArchive
+
+          $actualHash = (Get-FileHash -Algorithm SHA256 -Path $npcapSdkArchive).Hash.ToLowerInvariant()
+          if ($actualHash -ne '52c7b9fb4abee3ad9fe739bb545c3efe77b731c8e127122bdf328eafdae3ed4f') {
+            throw "Npcap SDK checksum mismatch: $actualHash"
+          }
+
+          Expand-Archive -LiteralPath $npcapSdkArchive -DestinationPath $npcapSdkPath -Force
+          $includeDir = Join-Path $npcapSdkPath 'Include'
+          $libDir = Join-Path $npcapSdkPath 'Lib\x64'
+          foreach ($requiredPath in @(
+            (Join-Path $includeDir 'pcap.h'),
+            (Join-Path $libDir 'wpcap.lib'),
+            (Join-Path $libDir 'Packet.lib')
+          )) {
+            if (-not (Test-Path $requiredPath)) {
+              throw "Npcap SDK is missing required file: $requiredPath"
+            }
+          }
+
+          "PATH=$mingwBin;$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "CGO_CFLAGS=-I$includeDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "CGO_LDFLAGS=-L$libDir -lwpcap -lPacket" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Build Windows binaries
         shell: pwsh
