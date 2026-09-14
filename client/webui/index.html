@@ -20,12 +20,6 @@
             </svg>
         </div>
         <h2>WOL Plus</h2>
-        <label class="language-switcher"><span data-language-label>语言:</span>
-            <select data-language-select aria-label="Language">
-                <option value="zh-CN">中文</option>
-                <option value="en">English</option>
-            </select>
-        </label>
 
         <!-- 登录表单 -->
         <form id="loginForm" onsubmit="return false;">
@@ -42,6 +36,14 @@
             </div>
             <p id="loginMessage"></p>
         </form>
+        <div class="login-language">
+            <label for="loginLanguage">中文 / English</label>
+            <select id="loginLanguage" class="language-select" data-language-select>
+                <option value="auto" data-i18n="language.auto">跟随浏览器</option>
+                <option value="zh-CN" lang="zh-CN">中文</option>
+                <option value="en" lang="en">English</option>
+            </select>
+        </div>
     </div>
 
     <!-- 配置界面 -->
@@ -58,12 +60,6 @@
                     <h2 style="margin: 0;">WOL Plus</h2>
                 </div>
                 <div class="header-actions">
-                    <label class="language-switcher compact"><span data-language-label>语言:</span>
-                        <select data-language-select aria-label="Language">
-                            <option value="zh-CN">中文</option>
-                            <option value="en">English</option>
-                        </select>
-                    </label>
                     <button class="icon-btn settings-btn" onclick="showSettings()" data-i18n-title="main.settings" title="设置">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="3"></circle>
@@ -147,6 +143,18 @@
                 <h2 style="margin: 0;" data-i18n="settings.title">系统设置</h2>
                 <div style="width: 38px;"></div>
             </header>
+
+            <section class="language-settings">
+                <div class="form-group">
+                    <label for="settingsLanguage" data-i18n="language.label">语言</label>
+                    <select id="settingsLanguage" class="language-select" data-language-select aria-describedby="languageHelp">
+                        <option value="auto" data-i18n="language.auto">跟随浏览器</option>
+                        <option value="zh-CN" lang="zh-CN">中文</option>
+                        <option value="en" lang="en">English</option>
+                    </select>
+                    <small id="languageHelp" data-i18n="language.help">立即生效，自动记住选择，无需保存。</small>
+                </div>
+            </section>
 
             <section class="network-section">
                 <div class="form-group">

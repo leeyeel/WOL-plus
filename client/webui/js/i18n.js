@@ -6,10 +6,13 @@ const I18n = {
     STORAGE_KEY: 'wol_language',
     supported: ['zh-CN', 'en'],
     language: 'zh-CN',
+    preference: 'auto',
     messages: {
         'zh-CN': {
             'app.title': 'WOL Plus 配置',
             'language.label': '语言',
+            'language.help': '立即生效，自动记住选择，无需保存。',
+            'language.auto': '跟随浏览器',
             'language.zh': '中文',
             'language.en': 'English',
             'login.username': '用户名',
@@ -56,6 +59,8 @@ const I18n = {
         en: {
             'app.title': 'WOL Plus Configuration',
             'language.label': 'Language',
+            'language.help': 'Applies immediately. Your choice is remembered automatically.',
+            'language.auto': 'Browser default',
             'language.zh': '中文',
             'language.en': 'English',
             'login.username': 'Username',
@@ -102,21 +107,39 @@ const I18n = {
     },
 
     init() {
-        const stored = localStorage.getItem(this.STORAGE_KEY);
-        const browser = (navigator.language || '').toLowerCase();
-        this.language = this.supported.includes(stored)
-            ? stored
-            : (browser.startsWith('zh') ? 'zh-CN' : 'en');
-        this.apply();
+        let stored;
+        try { stored = localStorage.getItem(this.STORAGE_KEY); } catch (_) { /* Storage is optional. */ }
+        this.setLanguage(this.supported.includes(stored) ? stored : 'auto', false);
         document.querySelectorAll('[data-language-select]').forEach((select) => {
             select.addEventListener('change', (event) => this.setLanguage(event.target.value));
         });
+        window.addEventListener('languagechange', () => {
+            if (this.preference === 'auto') this.setLanguage('auto', false);
+        });
+        window.addEventListener('storage', (event) => {
+            if (event.key === this.STORAGE_KEY || event.key === null) {
+                this.setLanguage(this.supported.includes(event.newValue) ? event.newValue : 'auto', false);
+            }
+        });
     },
 
-    setLanguage(language) {
-        if (!this.supported.includes(language)) return;
-        this.language = language;
-        localStorage.setItem(this.STORAGE_KEY, language);
+    setLanguage(language, persist = true) {
+        if (language !== 'auto' && !this.supported.includes(language)) return;
+        const previous = this.language;
+        this.preference = language;
+        const languages = navigator.languages?.length ? navigator.languages : [navigator.language || 'en'];
+        const match = languages.find((value) => /^(zh|en)(-|$)/i.test(value));
+        this.language = language === 'auto' ? (/^zh/i.test(match || '') ? 'zh-CN' : 'en') : language;
+        if (persist) {
+            try { localStorage.setItem(this.STORAGE_KEY, language); } catch (_) { /* Keep working in memory. */ }
+        }
+        // Existing transient messages also follow the selected language.
+        ['loginMessage', 'message', 'settingsMessage'].forEach((id) => {
+            const element = document.getElementById(id);
+            if (!element || !element.textContent) return;
+            const key = Object.keys(this.messages[previous]).find((key) => this.messages[previous][key] === element.textContent);
+            if (key) element.textContent = this.t(key);
+        });
         this.apply();
     },
 
@@ -142,10 +165,14 @@ const I18n = {
             element.setAttribute('aria-label', this.t(element.dataset.i18nAriaLabel, variables));
         });
         document.querySelectorAll('[data-language-select]').forEach((select) => {
-            select.value = this.language;
+            select.value = this.preference;
         });
         document.querySelectorAll('[data-language-label]').forEach((element) => {
             element.textContent = `${this.t('language.label')}:`;
         });
+        const indicator = document.getElementById('statusIndicator');
+        if (indicator) indicator.setAttribute('aria-label', this.t(
+            indicator.classList.contains('status-offline') ? 'status.shutdownInProgress' : 'status.noShutdown'
+        ));
     }
 };

@@ -467,33 +467,44 @@ button svg {
     animation: fadeIn 0.5s ease;
 }
 
-.language-switcher {
-    display: inline-flex;
+.login-language {
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    margin: 0 auto 18px;
+    gap: 8px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-border-light);
     color: var(--color-text-secondary);
     font-size: 13px;
 }
 
-.language-switcher.compact {
-    margin: 0 4px 0 0;
-    color: var(--color-text-secondary);
-}
-
-.language-switcher select {
-    min-height: 30px;
-    padding: 3px 8px;
-    border: 1px solid var(--color-border-light);
-    border-radius: 6px;
-    background: rgba(255, 255, 255, 0.08);
-    color: inherit;
+.language-select {
+    min-height: 44px;
+    max-width: 100%;
+    padding: 8px 12px;
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-light);
+    color: var(--color-text);
     font: inherit;
+    cursor: pointer;
 }
 
-.language-switcher option {
-    color: #222;
+.language-select:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.language-settings .language-select {
+    width: 100%;
+    font-size: 15px;
+}
+
+.login-language .language-select {
+    border: 1px solid var(--color-border-light);
+    background: transparent;
 }
 
 /* 配置容器 */

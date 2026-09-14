@@ -4,6 +4,18 @@ Wake On LAN Plus uses raw Ethernet Wake-on-LAN Magic Packets for both wake and s
 
 Shutdown is a Magic Packet for the target MAC followed by a configured six-byte discriminator. The Client captures matching `0x0842` Ethernet frames and starts its shutdown timer.
 
+## See It in Action
+
+Send a shutdown command from OpenWrt and watch the Client start its countdown. Changed your mind? Cancel the shutdown from the Client's Web UI before the timer runs out.
+
+<p align="center">
+  <a href="docs/client-en.gif">
+    <img src="docs/client-en.gif" alt="WOL Plus Client demo: receiving a shutdown command starts the countdown, with a Cancel shutdown button in the Web UI" width="800">
+  </a>
+  <br>
+  <em>Client Web UI · Live shutdown countdown with the option to cancel</em>
+</p>
+
 ## Important Limitation
 
 A shutdown frame is also a standard Magic Packet. A device that is already powered off can be awakened by that frame before its operating system can process the shutdown discriminator. Use this transport only on the target LAN segment and accept that limitation.
@@ -53,6 +65,14 @@ For a capture-only service without the Web UI:
 Install the IPK packages from [Releases](https://github.com/leeyeel/WOL-plus/releases), then open `Services -> Wake on LAN Plus`.
 
 For wake, select the LAN interface and target MAC. For shutdown, enter the same six-byte discriminator configured in the Client. `etherwake` sends both actions as raw Ethernet frames.
+
+<p align="center">
+  <a href="docs/openwrt-en.png">
+    <img src="docs/openwrt-en.png" alt="OpenWrt LuCI interface showing device selection, wake action, network interface and broadcast options" width="629">
+  </a>
+  <br>
+  <em>OpenWrt LuCI · Choose a device and send wake or shutdown commands</em>
+</p>
 
 Build local IPKs with:
 
