@@ -10,10 +10,10 @@ const Config = {
         const message = (await response.text()).trim();
 
         if (response.status === 400 && message === 'Failed to parse config') {
-            return '当前客户端服务版本不支持关机控制密钥，请同时升级 wolp 服务端和 Web 页面。';
+            return I18n.t('error.oldService');
         }
 
-        return message || `${fallback}（HTTP ${response.status}）`;
+        return message || `${fallback} (HTTP ${response.status})`;
     },
 
     /**
@@ -81,18 +81,18 @@ const Config = {
      */
     async saveSettings() {
         if (this.supportsExtraData === false) {
-            return { success: false, message: '当前客户端服务版本不支持关机控制密钥，请同时升级 wolp 服务端和 Web 页面。' };
+            return { success: false, message: I18n.t('error.unsupportedExtraData') };
         }
 
         const settings = this.readSettingsFromDOM();
         const controlKey = ExtraInput.validate();
 
         if (!/^\d+$/.test(settings.shutdown_delay)) {
-            return { success: false, message: '关机延时必须为非负整数秒' };
+            return { success: false, message: I18n.t('error.delay') };
         }
 
         if (!controlKey.valid) {
-            return { success: false, message: '关机控制密钥必须为 6 字节十六进制数' };
+            return { success: false, message: I18n.t('error.controlKey') };
         }
 
         const payload = {};
@@ -110,7 +110,7 @@ const Config = {
 
         if (Object.keys(payload).length === 0) {
             document.getElementById('newPassword').value = '';
-            return { success: true, message: '设置未变更', unchanged: true };
+            return { success: true, message: I18n.t('success.unchanged'), unchanged: true };
         }
 
         const authHeader = Session.getAuthHeader();
@@ -123,22 +123,22 @@ const Config = {
                 if (credentialsChanged) {
                     return {
                         success: true,
-                        message: '设置已保存！',
+                        message: I18n.t('success.saved'),
                         needRelogin: true
                     };
                 }
-                return { success: true, message: '设置已保存！' };
+                return { success: true, message: I18n.t('success.saved') };
             }
 
             if (response.status === 401) {
                 Auth.logout();
-                UI.showLoginMessage('认证已过期，请重新登录');
-                return { success: false, message: '认证已过期' };
+                UI.showLoginMessage(I18n.t('error.authExpiredRelogin'));
+                return { success: false, message: I18n.t('error.authExpired') };
             }
 
-            return { success: false, message: await this.getErrorMessage(response, '保存失败！') };
+            return { success: false, message: await this.getErrorMessage(response, I18n.t('error.saveFailed')) };
         } catch (error) {
-            return { success: false, message: '网络错误，保存失败！' };
+            return { success: false, message: I18n.t('error.networkSaveFailed') };
         }
     },
 

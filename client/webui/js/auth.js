@@ -31,7 +31,7 @@ const Auth = {
      */
     async login(username, password) {
         if (!this.validateCredentials(username, password)) {
-            return { success: false, error: '请输入用户名和密码' };
+            return { success: false, error: I18n.t('error.credentialsRequired') };
         }
 
         const authHeader = this.createAuthHeader(username, password);
@@ -46,9 +46,9 @@ const Auth = {
                 return { success: true };
             }
 
-            return { success: false, error: '用户名或密码错误' };
+            return { success: false, error: I18n.t('error.credentialsInvalid') };
         } catch (error) {
-            return { success: false, error: '网络错误，请稍后重试' };
+            return { success: false, error: I18n.t('error.networkRetry') };
         }
     },
 

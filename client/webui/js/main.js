@@ -8,6 +8,7 @@ const App = {
      * 初始化应用
      */
     async init() {
+        I18n.init();
         this.bindEvents();
 
         // 如果有缓存的认证信息，验证是否仍然有效
@@ -92,7 +93,7 @@ const App = {
         if (result.needRelogin) {
             setTimeout(() => {
                 Auth.logout();
-                UI.showLoginMessage('密码已修改，请重新登录');
+                UI.showLoginMessage(I18n.t('success.passwordChanged'));
             }, 1500);
         }
     }

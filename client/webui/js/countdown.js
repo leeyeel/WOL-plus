@@ -23,11 +23,11 @@ const Countdown = {
             if (remaining > 0) {
                 el.classList.add('countdown-active');
                 indicator.className = 'status-indicator status-offline';
-                indicator.setAttribute('aria-label', '关机倒计时进行中');
+                indicator.setAttribute('aria-label', I18n.t('status.shutdownInProgress'));
             } else {
                 el.classList.remove('countdown-active');
                 indicator.className = 'status-indicator status-online';
-                indicator.setAttribute('aria-label', '未计划关机');
+                indicator.setAttribute('aria-label', I18n.t('status.noShutdown'));
             }
         } catch (error) {
             console.error('获取剩余时间失败:', error);
@@ -65,13 +65,13 @@ const Countdown = {
 
             if (response.status === 401) {
                 Auth.logout();
-                UI.showLoginMessage('认证已过期，请重新登录');
-                return { success: false, message: '认证已过期' };
+                UI.showLoginMessage(I18n.t('error.authExpiredRelogin'));
+                return { success: false, message: I18n.t('error.authExpired') };
             }
 
-            return { success: true, message: '关机已取消！' };
+            return { success: true, message: I18n.t('success.cancelled') };
         } catch (error) {
-            return { success: false, message: '取消失败！' };
+            return { success: false, message: I18n.t('error.cancelFailed') };
         }
     }
 };
